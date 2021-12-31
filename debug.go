@@ -61,19 +61,17 @@ func runBinary(target string, sourceFile string, symTable *gosym.Table) {
 	syscall.PtracePokeData(pid, uintptr(breakpointAddress), interruptCode)
 	syscall.PtraceCont(pid, 0)
 
-	var ws syscall.WaitStatus
+	var waitStatus syscall.WaitStatus
 
 	for {
-		syscall.Wait4(pid, &ws, 0, nil)
+		syscall.Wait4(pid, &waitStatus, 0, nil)
 
-		if ws.StopSignal() == syscall.SIGTRAP && ws.TrapCause() != syscall.PTRACE_EVENT_CLONE {
+		if waitStatus.StopSignal() == syscall.SIGTRAP && waitStatus.TrapCause() != syscall.PTRACE_EVENT_CLONE {
 			break
-		} else { // received a signal other than trap/a trap from clone event
+		} else { // received a signal other than trap/a trap from clone event, continue and wait more
 			syscall.PtraceCont(pid, 0)
 		}
 	}
-	
-
 
 	
 
@@ -83,6 +81,8 @@ func runBinary(target string, sourceFile string, symTable *gosym.Table) {
 	filename, line, fn := symTable.PCToLine(regs.Rip)
 	
 	fmt.Printf("%s is at line %d in %s\n", fn.Name, line, filename)
+
+	askForInput()
 }
 
 
