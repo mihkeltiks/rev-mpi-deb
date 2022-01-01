@@ -36,15 +36,6 @@ func main() {
 
 }
 
-func logRegistersState(ctx processContext) {
-	var regs syscall.PtraceRegs
-	syscall.PtraceGetRegs(ctx.pid, &regs)
-
-	filename, line, fn := ctx.symTable.PCToLine(regs.Rip)
-
-	fmt.Printf("instruction pointer: func %s (line %d in %s)\n", fn.Name, line, filename)
-}
-
 func startBinary(target string, sourceFile string, symTable *gosym.Table) *exec.Cmd {
 
 	cmd := exec.Command(target)
@@ -105,31 +96,4 @@ func getValuesFromArgs() string {
 	}
 
 	return targetFilePath
-}
-
-func printLineForPC(symTable *gosym.Table, pc uint64) string {
-	var fileName string
-	var line int
-
-	fileName, line, _ = symTable.PCToLine(pc)
-
-	fmt.Printf("Program counter address %X is in file %s at line %d\n", pc, fileName, line)
-
-	return fileName
-}
-
-func printPCForLine(symTable *gosym.Table, fileName string, lineNr int) {
-	var pc uint64
-	var fn *gosym.Func
-
-	pc, fn, _ = symTable.LineToPC(fileName, lineNr)
-
-	var fnName string
-	if fn == nil {
-		fnName = "<no function>"
-	} else {
-		fnName = fn.Name
-	}
-
-	fmt.Printf("In file %s at line %d there is PC address %X and function %s \n", fileName, lineNr, pc, fnName)
 }

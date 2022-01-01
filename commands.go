@@ -67,10 +67,10 @@ func getCommandFromInput() *command {
 
 func parseCommandFromString(input string) (c *command) {
 
-	isValidBreakPointInput := regexp.MustCompile("^b \\d+$").Match([]byte(input))
+	breakPointRegexp := regexp.MustCompile("^b \\d+$")
 
 	switch {
-	case isValidBreakPointInput:
+	case breakPointRegexp.Match([]byte(input)):
 		lineNr, _ := strconv.Atoi(strings.Split(input, " ")[1])
 
 		return &command{code: bpoint, lineNr: lineNr}

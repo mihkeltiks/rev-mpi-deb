@@ -16,7 +16,7 @@ func setBreakPoint(ctx processContext, line int) {
 		panic(err)
 	}
 
-	file, line, _ := ctx.symTable.PCToLine(breakpointAddress)
+	file, line := getLineForPC(ctx.symTable, breakpointAddress)
 	log.Default().Printf("setting breakpoint at file: %v, line: %d", file, line)
 
 	// set breakpoint (insert interrup code at the first pc address at the line)
@@ -37,4 +37,13 @@ func continueExecution(ctx processContext) {
 			// received a signal other than trap/a trap from clone event, continue and wait more
 		}
 	}
+}
+
+func logRegistersState(ctx processContext) {
+	var regs syscall.PtraceRegs
+	syscall.PtraceGetRegs(ctx.pid, &regs)
+
+	filename, line, fn := ctx.symTable.PCToLine(regs.Rip)
+
+	log.Default().Printf("instruction pointer: func %s (line %d in %s)\n", fn.Name, line, filename)
 }
