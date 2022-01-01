@@ -48,7 +48,7 @@ func askForInput() *command {
 		fmt.Println("Invalid input")
 		return askForInput()
 	}
-	fmt.Printf("valid command: %v \n", command)
+
 	return command
 }
 

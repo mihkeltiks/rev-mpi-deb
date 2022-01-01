@@ -27,13 +27,12 @@ func main() {
 	ctx.sourceFile = getSourceFileInfo(ctx.symTable)
 
 	ctx.cmd = startBinary(targetFile, ctx.sourceFile, ctx.symTable)
-
 	ctx.pid = ctx.cmd.Process.Pid
 
 	setBreakPoint(ctx, 9)
-	logRegistersState(ctx)
-
 	continueExecution(ctx)
+
+	logRegistersState(ctx)
 
 }
 
