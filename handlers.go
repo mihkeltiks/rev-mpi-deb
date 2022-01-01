@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"syscall"
 )
@@ -9,7 +8,6 @@ import (
 func setBreakPoint(ctx processContext, line int) {
 	var interruptCode = []byte{0xCC} // code for breakpoint trap
 
-	fmt.Printf("sourcefie: %s\n", ctx.sourceFile)
 	breakpointAddress, _, err := ctx.symTable.LineToPC(ctx.sourceFile, line)
 
 	if err != nil {
