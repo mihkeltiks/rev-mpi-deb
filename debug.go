@@ -10,28 +10,45 @@ import (
 	"syscall"
 )
 
-var interruptCode = []byte{0xCC}
-
+type processContext struct {
+	sourceFile string       // source code file
+	symTable   *gosym.Table // symbol table for the source code file
+	cmd        *exec.Cmd    // the running binary
+	pid        int          // the process id of the running binary
+}
 
 func main() {
 
 	targetFile := getValuesFromArgs()
 
-	symTable := getSymbolTable(targetFile)
+	ctx := processContext{}
 
-	sourceFile, _ := getSourceFileInfo(symTable) 	
+	ctx.symTable = getSymbolTable(targetFile)
+	ctx.sourceFile = getSourceFileInfo(ctx.symTable)
 
-	
-	runBinary(targetFile, sourceFile, symTable)
+	ctx.cmd = startBinary(targetFile, ctx.sourceFile, ctx.symTable)
 
+	ctx.pid = ctx.cmd.Process.Pid
+
+	setBreakPoint(ctx, 9)
+	logRegistersState(ctx)
+
+	continueExecution(ctx)
 
 }
 
+func logRegistersState(ctx processContext) {
+	var regs syscall.PtraceRegs
+	syscall.PtraceGetRegs(ctx.pid, &regs)
 
-func runBinary(target string, sourceFile string, symTable *gosym.Table) {
-	var cmd *exec.Cmd
-	
-	cmd = exec.Command(target)
+	filename, line, fn := ctx.symTable.PCToLine(regs.Rip)
+
+	fmt.Printf("instruction pointer: func %s (line %d in %s)\n", fn.Name, line, filename)
+}
+
+func startBinary(target string, sourceFile string, symTable *gosym.Table) *exec.Cmd {
+
+	cmd := exec.Command(target)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -44,57 +61,19 @@ func runBinary(target string, sourceFile string, symTable *gosym.Table) {
 	err := cmd.Wait()
 
 	if err != nil {
-		fmt.Printf("Returned from wait: %v\n", err)
+		// arrived at auto-inserted initial breakpoint trap
 	}
 
-	pid := cmd.Process.Pid
-
-	breakPointLine := 9
-	breakpointAddress, _, _ := symTable.LineToPC(sourceFile, breakPointLine)
-
-	// this works 
-	file, line, fn := symTable.PCToLine(breakpointAddress)
-	fmt.Printf("file: %v, line: %d, fn name: %v\n", file, line, fn.Name)
-
-
-	// set breakpoint (insert interrup code at address where main function starts)
-	syscall.PtracePokeData(pid, uintptr(breakpointAddress), interruptCode)
-	syscall.PtraceCont(pid, 0)
-
-	var waitStatus syscall.WaitStatus
-
-	for {
-		syscall.Wait4(pid, &waitStatus, 0, nil)
-
-		if waitStatus.StopSignal() == syscall.SIGTRAP && waitStatus.TrapCause() != syscall.PTRACE_EVENT_CLONE {
-			break
-		} else { // received a signal other than trap/a trap from clone event, continue and wait more
-			syscall.PtraceCont(pid, 0)
-		}
-	}
-
-	
-
-	var regs syscall.PtraceRegs
-	syscall.PtraceGetRegs(pid, &regs)
-
-	filename, line, fn := symTable.PCToLine(regs.Rip)
-	
-	fmt.Printf("%s is at line %d in %s\n", fn.Name, line, filename)
-
-	askForInput()
+	return cmd
 }
 
-
-func getSourceFileInfo(symTable *gosym.Table) (fileName string, mainFn *gosym.Func)  {
-	mainFn = symTable.LookupFunc("main.main")
+func getSourceFileInfo(symTable *gosym.Table) (fileName string) {
+	mainFn := symTable.LookupFunc("main.main")
 
 	fileName, _, _ = symTable.PCToLine(mainFn.Entry)
 
-	return fileName, mainFn;
+	return fileName
 }
-
-
 
 func getPCAddressForLine(symTable *gosym.Table, fileName string, lineNr int) uint64 {
 	var pc uint64
@@ -109,9 +88,6 @@ func getPCAddressForLine(symTable *gosym.Table, fileName string, lineNr int) uin
 	return pc
 }
 
-
-
-
 // parse and validate command line arguments
 func getValuesFromArgs() string {
 	if len(os.Args) < 2 {
@@ -120,7 +96,7 @@ func getValuesFromArgs() string {
 	}
 
 	targetFilePath, err := filepath.Abs(os.Args[1])
-	
+
 	if err != nil {
 		panic(err)
 	}
@@ -132,13 +108,10 @@ func getValuesFromArgs() string {
 	return targetFilePath
 }
 
-
-
-
 func printLineForPC(symTable *gosym.Table, pc uint64) string {
 	var fileName string
 	var line int
-	
+
 	fileName, line, _ = symTable.PCToLine(pc)
 
 	fmt.Printf("Program counter address %X is in file %s at line %d\n", pc, fileName, line)
@@ -146,21 +119,18 @@ func printLineForPC(symTable *gosym.Table, pc uint64) string {
 	return fileName
 }
 
-
-
 func printPCForLine(symTable *gosym.Table, fileName string, lineNr int) {
 	var pc uint64
 	var fn *gosym.Func
 
 	pc, fn, _ = symTable.LineToPC(fileName, lineNr)
 
-	var fnName string;
+	var fnName string
 	if fn == nil {
 		fnName = "<no function>"
 	} else {
 		fnName = fn.Name
 	}
-
 
 	fmt.Printf("In file %s at line %d there is PC address %X and function %s \n", fileName, lineNr, pc, fnName)
 }
