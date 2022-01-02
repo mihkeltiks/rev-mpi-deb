@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"syscall"
 )
 
-func setBreakPoint(ctx processContext, line int) (err error) {
+func setBreakPoint(ctx *processContext, line int) (err error) {
 	var interruptCode = []byte{0xCC} // code for breakpoint trap
 
 	breakpointAddress, _, err := ctx.symTable.LineToPC(ctx.sourceFile, line)
@@ -24,7 +26,7 @@ func setBreakPoint(ctx processContext, line int) (err error) {
 	return err
 }
 
-func continueExecution(ctx processContext) {
+func continueExecution(ctx *processContext) {
 	var waitStatus syscall.WaitStatus
 
 	for {
@@ -40,11 +42,25 @@ func continueExecution(ctx processContext) {
 	}
 }
 
-func logRegistersState(ctx processContext) {
+func singleStep(ctx *processContext) {
+	syscall.PtraceSingleStep(ctx.pid)
+}
+
+func logRegistersState(ctx *processContext) {
 	var regs syscall.PtraceRegs
 	syscall.PtraceGetRegs(ctx.pid, &regs)
 
 	filename, line, fn := ctx.symTable.PCToLine(regs.Rip)
 
-	log.Default().Printf("instruction pointer: func %s (line %d in %s)\n", fn.Name, line, filename)
+	var fName string
+	if fn != nil {
+		fName = fn.Name
+	}
+
+	log.Default().Printf("instruction pointer: %s (line %d in %s)\n", fName, line, filename)
+}
+
+func quitDebugger() {
+	fmt.Println("👋 Exiting..")
+	os.Exit(0)
 }

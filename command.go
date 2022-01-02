@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -35,6 +33,27 @@ const (
 	quit
 )
 
+func (cmd *command) handle(ctx *processContext) error {
+	var err error
+
+	switch cmd.code {
+	case bpoint:
+		err = setBreakPoint(ctx, cmd.lineNr)
+	case step:
+		singleStep(ctx)
+	case cont:
+		continueExecution(ctx)
+	case quit:
+		quitDebugger()
+	}
+
+	return err
+}
+
+func (cmd *command) isProgressCommand() bool {
+	return cmd.code == step || cmd.code == cont
+}
+
 func (c command) String() string {
 	commandStrings := map[commandCode]string{
 		bpoint: "bpoint",
@@ -49,32 +68,6 @@ func (c command) String() string {
 	}
 
 	return fmt.Sprintf("Command{%s%s} \n", commandStrings[c.code], bpointString)
-}
-
-func askForInput() *command {
-	printInstructions()
-
-	command := getCommandFromInput()
-
-	if command == nil {
-		fmt.Println("Invalid input")
-		return askForInput()
-	}
-
-	return command
-}
-
-func getCommandFromInput() *command {
-
-	reader := bufio.NewReader(os.Stdin)
-
-	text, _ := reader.ReadString('\n')
-
-	text = strings.Replace(text, "\n", "", 1)
-
-	text = strings.ToLower(text)
-
-	return parseCommandFromString(text)
 }
 
 func parseCommandFromString(input string) (c *command) {
@@ -99,15 +92,4 @@ func parseCommandFromString(input string) (c *command) {
 	default:
 		return nil
 	}
-}
-
-func printInstructions() {
-
-	fmt.Print("\nAvailable commands:\n\n")
-
-	fmt.Println("  b <lineNr> \t set breakpoint")
-	fmt.Println("  s  \t\t single step forward")
-	fmt.Println("  c  \t\t continue execution")
-	fmt.Println("  q  \t\t quit")
-	fmt.Println()
 }

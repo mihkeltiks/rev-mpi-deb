@@ -13,7 +13,7 @@ import (
 type processContext struct {
 	sourceFile string       // source code file
 	symTable   *gosym.Table // symbol table for the source code file
-	cmd        *exec.Cmd    // the running binary
+	process    *exec.Cmd    // the running binary
 	pid        int          // the process id of the running binary
 }
 
@@ -21,18 +21,23 @@ func main() {
 
 	targetFile := getValuesFromArgs()
 
-	ctx := processContext{}
+	ctx := &processContext{}
 
 	ctx.symTable = getSymbolTable(targetFile)
 	ctx.sourceFile = getSourceFileInfo(ctx.symTable)
 
-	ctx.cmd = startBinary(targetFile, ctx.sourceFile, ctx.symTable)
-	ctx.pid = ctx.cmd.Process.Pid
+	ctx.process = startBinary(targetFile, ctx.sourceFile, ctx.symTable)
+	ctx.pid = ctx.process.Process.Pid
 
-	_ = setBreakPoint(ctx, 19)
-	continueExecution(ctx)
+	for {
+		cmd := askForInput()
 
-	logRegistersState(ctx)
+		cmd.handle(ctx)
+
+		if cmd.isProgressCommand() {
+			logRegistersState(ctx)
+		}
+	}
 }
 
 func startBinary(target string, sourceFile string, symTable *gosym.Table) *exec.Cmd {
