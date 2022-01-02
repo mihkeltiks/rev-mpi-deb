@@ -27,7 +27,7 @@ func setBreakPoint(ctx *processContext, line int) (err error) {
 
 	log.Default().Printf("saving breakpoint data: %v, %v", breakpointAddress, originalInstruction)
 
-	ctx.bpointData[line] = &bpointData{
+	(*ctx.bpointData)[line] = &bpointData{
 		breakpointAddress,
 		originalInstruction,
 	}

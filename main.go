@@ -12,11 +12,11 @@ import (
 )
 
 type processContext struct {
-	sourceFile string        // source code file
-	symTable   *gosym.Table  // symbol table for the source code file
-	process    *exec.Cmd     // the running binary
-	pid        int           // the process id of the running binary
-	bpointData bpointDataMap // holds the instuctions currently replaced by breakpoints
+	sourceFile string         // source code file
+	symTable   *gosym.Table   // symbol table for the source code file
+	process    *exec.Cmd      // the running binary
+	pid        int            // the process id of the running binary
+	bpointData *bpointDataMap // holds the instuctions currently replaced by breakpoints
 }
 
 type bpointDataMap map[int]*bpointData // keys - line numbers
@@ -31,7 +31,7 @@ type bpointData struct {
 func (ctx *processContext) restoreCaughtBreakpoint() {
 	line, _, _ := getCurrentLine(ctx)
 
-	bpointData := ctx.bpointData[line]
+	bpointData := (*ctx.bpointData)[line]
 
 	if bpointData == nil {
 		fmt.Printf("caughtAtBreakpoint false: %v, %v\n", bpointData, bpointData)
@@ -55,7 +55,9 @@ func main() {
 	ctx.process = startBinary(targetFile, ctx.sourceFile, ctx.symTable)
 
 	ctx.pid = ctx.process.Process.Pid
-	ctx.bpointData = make(bpointDataMap)
+
+	_bpointDataMap := make(bpointDataMap)
+	ctx.bpointData = &_bpointDataMap
 
 	for {
 		cmd := askForInput()
