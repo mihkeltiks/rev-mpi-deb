@@ -29,11 +29,10 @@ func main() {
 	ctx.cmd = startBinary(targetFile, ctx.sourceFile, ctx.symTable)
 	ctx.pid = ctx.cmd.Process.Pid
 
-	setBreakPoint(ctx, 9)
+	_ = setBreakPoint(ctx, 19)
 	continueExecution(ctx)
 
 	logRegistersState(ctx)
-
 }
 
 func startBinary(target string, sourceFile string, symTable *gosym.Table) *exec.Cmd {

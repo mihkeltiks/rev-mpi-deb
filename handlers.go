@@ -5,13 +5,14 @@ import (
 	"syscall"
 )
 
-func setBreakPoint(ctx processContext, line int) {
+func setBreakPoint(ctx processContext, line int) (err error) {
 	var interruptCode = []byte{0xCC} // code for breakpoint trap
 
 	breakpointAddress, _, err := ctx.symTable.LineToPC(ctx.sourceFile, line)
 
 	if err != nil {
-		panic(err)
+		log.Default().Printf("cannot set breakpoint at line: %v", err)
+		return err
 	}
 
 	file, line := getLineForPC(ctx.symTable, breakpointAddress)
@@ -19,6 +20,8 @@ func setBreakPoint(ctx processContext, line int) {
 
 	// set breakpoint (insert interrup code at the first pc address at the line)
 	syscall.PtracePokeData(ctx.pid, uintptr(breakpointAddress), interruptCode)
+
+	return err
 }
 
 func continueExecution(ctx processContext) {

@@ -14,6 +14,18 @@ type command struct {
 	lineNr int
 }
 
+// type Weekday string
+
+// const (
+// 	Sunday    Weekday = "Sunday"
+// 	Monday    Weekday = "Monday"
+// 	Tuesday   Weekday = "Tuesday"
+// 	Wednesday Weekday = "Wednesday"
+// 	Thursday  Weekday = "Thursday"
+// 	Friday    Weekday = "Friday"
+// 	Saturday  Weekday = "Saturday"
+// )
+
 type commandCode int
 
 const (
