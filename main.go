@@ -4,6 +4,7 @@ import (
 	"debug/gosym"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,10 +12,35 @@ import (
 )
 
 type processContext struct {
-	sourceFile string       // source code file
-	symTable   *gosym.Table // symbol table for the source code file
-	process    *exec.Cmd    // the running binary
-	pid        int          // the process id of the running binary
+	sourceFile string        // source code file
+	symTable   *gosym.Table  // symbol table for the source code file
+	process    *exec.Cmd     // the running binary
+	pid        int           // the process id of the running binary
+	bpointData bpointDataMap // holds the instuctions currently replaced by breakpoints
+}
+
+type bpointDataMap map[int]*bpointData // keys - line numbers
+
+type bpointData struct {
+	address uint64 // address of the instruction
+	data    []byte // actual contents of the instruction
+}
+
+// restores the original instruction if the executable
+// is currently caught at a breakpoint
+func (ctx *processContext) restoreCaughtBreakpoint() {
+	line, _, _ := getCurrentLine(ctx)
+
+	bpointData := ctx.bpointData[line]
+
+	if bpointData == nil {
+		fmt.Printf("caughtAtBreakpoint false: %v, %v\n", bpointData, bpointData)
+		return
+	}
+
+	fmt.Printf("caughtAtBreakpoint true: %v, %v\n", bpointData.address, bpointData.data)
+
+	syscall.PtracePokeData(ctx.pid, uintptr(bpointData.address), bpointData.data)
 }
 
 func main() {
@@ -27,7 +53,9 @@ func main() {
 	ctx.sourceFile = getSourceFileInfo(ctx.symTable)
 
 	ctx.process = startBinary(targetFile, ctx.sourceFile, ctx.symTable)
+
 	ctx.pid = ctx.process.Process.Pid
+	ctx.bpointData = make(bpointDataMap)
 
 	for {
 		cmd := askForInput()
@@ -35,6 +63,8 @@ func main() {
 		cmd.handle(ctx)
 
 		if cmd.isProgressCommand() {
+			ctx.restoreCaughtBreakpoint()
+
 			logRegistersState(ctx)
 		}
 	}
@@ -67,6 +97,27 @@ func getSourceFileInfo(symTable *gosym.Table) (fileName string) {
 	fileName, _, _ = symTable.PCToLine(mainFn.Entry)
 
 	return fileName
+}
+
+func logRegistersState(ctx *processContext) {
+	line, fileName, fnName := getCurrentLine(ctx)
+
+	log.Default().Printf("instruction pointer: %s (line %d in %s)\n", fnName, line, fileName)
+}
+
+func getCurrentLine(ctx *processContext) (line int, fileName string, fnName string) {
+	var regs syscall.PtraceRegs
+	syscall.PtraceGetRegs(ctx.pid, &regs)
+
+	fileName, line, fn := ctx.symTable.PCToLine(regs.Rip)
+
+	if fn == nil {
+		fnName = "<no function>"
+	} else {
+		fnName = fn.Name
+	}
+
+	return line, fileName, fnName
 }
 
 func getPCAddressForLine(symTable *gosym.Table, fileName string, lineNr int) uint64 {

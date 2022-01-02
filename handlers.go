@@ -20,6 +20,18 @@ func setBreakPoint(ctx *processContext, line int) (err error) {
 	file, line := getLineForPC(ctx.symTable, breakpointAddress)
 	log.Default().Printf("setting breakpoint at file: %v, line: %d", file, line)
 
+	// store the replaced instruction in the process context
+	// to swap it in later after breakpoint is hit
+	originalInstruction := make([]byte, len(interruptCode))
+	syscall.PtracePeekData(ctx.pid, uintptr(breakpointAddress), originalInstruction)
+
+	log.Default().Printf("saving breakpoint data: %v, %v", breakpointAddress, originalInstruction)
+
+	ctx.bpointData[line] = &bpointData{
+		breakpointAddress,
+		originalInstruction,
+	}
+
 	// set breakpoint (insert interrup code at the first pc address at the line)
 	syscall.PtracePokeData(ctx.pid, uintptr(breakpointAddress), interruptCode)
 
@@ -44,20 +56,6 @@ func continueExecution(ctx *processContext) {
 
 func singleStep(ctx *processContext) {
 	syscall.PtraceSingleStep(ctx.pid)
-}
-
-func logRegistersState(ctx *processContext) {
-	var regs syscall.PtraceRegs
-	syscall.PtraceGetRegs(ctx.pid, &regs)
-
-	filename, line, fn := ctx.symTable.PCToLine(regs.Rip)
-
-	var fName string
-	if fn != nil {
-		fName = fn.Name
-	}
-
-	log.Default().Printf("instruction pointer: %s (line %d in %s)\n", fName, line, filename)
 }
 
 func quitDebugger() {
