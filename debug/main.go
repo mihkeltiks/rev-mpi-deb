@@ -13,10 +13,11 @@ import (
 
 type processContext struct {
 	sourceFile string         // source code file
+	dwarfData  *dwarfData     //
 	symTable   *gosym.Table   // symbol table for the source code file
 	process    *exec.Cmd      // the running binary
 	pid        int            // the process id of the running binary
-	bpointData *bpointDataMap // holds the instuctions currently replaced by breakpoints
+	bpointData *bpointDataMap // holds the instuctions for currently replaced by breakpoints
 }
 
 type bpointDataMap map[int]*bpointData // keys - line numbers
@@ -26,53 +27,57 @@ type bpointData struct {
 	data    []byte // actual contents of the instruction
 }
 
-// restores the original instruction if the executable
-// is currently caught at a breakpoint
-func (ctx *processContext) restoreCaughtBreakpoint() {
-	line, _, _ := getCurrentLine(ctx)
-
-	bpointData := (*ctx.bpointData)[line]
-
-	if bpointData == nil {
-		fmt.Printf("caughtAtBreakpoint false: %v, %v\n", bpointData, bpointData)
-		return
-	}
-
-	fmt.Printf("caughtAtBreakpoint true: %v, %v\n", bpointData.address, bpointData.data)
-
-	syscall.PtracePokeData(ctx.pid, uintptr(bpointData.address), bpointData.data)
-}
-
 func main() {
 
 	targetFile := getValuesFromArgs()
 
 	ctx := &processContext{}
 
-	ctx.symTable = getSymbolTable(targetFile)
-	ctx.sourceFile = getSourceFileInfo(ctx.symTable)
+	ctx.dwarfData = getDwarfData(targetFile)
 
-	ctx.process = startBinary(targetFile, ctx.sourceFile, ctx.symTable)
+	// ctx.symTable = getSymbolTable(targetFile)
+
+	ctx.sourceFile = getSourceFileInfo(ctx.dwarfData)
+
+	ctx.process = startBinary(targetFile)
 
 	ctx.pid = ctx.process.Process.Pid
 
 	_bpointDataMap := make(bpointDataMap)
 	ctx.bpointData = &_bpointDataMap
 
-	for {
-		cmd := askForInput()
+	var regs syscall.PtraceRegs
 
-		cmd.handle(ctx)
+	syscall.PtraceGetRegs(ctx.pid, &regs)
+	fmt.Printf("rip register at %x\n", regs.Rip)
 
-		if cmd.isProgressCommand() {
-			ctx.restoreCaughtBreakpoint()
+	setBreakPoint(ctx, 24)
+	continueExecution(ctx)
 
-			logRegistersState(ctx)
-		}
-	}
+	syscall.PtraceGetRegs(ctx.pid, &regs)
+	fmt.Printf("rip register at %x\n", regs.Rip)
+
+	restoreCaughtBreakpoint(ctx)
+	// continueExecution(ctx)
+
+	//syscall.RawSyscall(syscall.SYS_PERSONALITY) try this to not have to -no-pie c files
+
+	// for {
+	// 	cmd := askForInput()
+
+	// 	cmd.handle(ctx)
+
+	// 	if cmd.isProgressCommand() {
+	// 		ctx.restoreCaughtBreakpoint()
+
+	// askForInput()
+	// logRegistersState(ctx)
+	// 	}
+	// }
+
 }
 
-func startBinary(target string, sourceFile string, symTable *gosym.Table) *exec.Cmd {
+func startBinary(target string) *exec.Cmd {
 
 	cmd := exec.Command(target)
 
@@ -88,38 +93,40 @@ func startBinary(target string, sourceFile string, symTable *gosym.Table) *exec.
 
 	if err != nil {
 		// arrived at auto-inserted initial breakpoint trap
+		log.Default().Println("binary started, waiting for continuation")
 	}
 
 	return cmd
 }
 
-func getSourceFileInfo(symTable *gosym.Table) (fileName string) {
-	mainFn := symTable.LookupFunc("main.main")
+func getSourceFileInfo(d *dwarfData) string {
+	mainFunctionName := map[language]string{
+		golang: "main.main",
+		c:      "main",
+	}[d.lang]
 
-	fileName, _, _ = symTable.PCToLine(mainFn.Entry)
+	module, function := d.lookupFunc(mainFunctionName)
 
-	return fileName
+	sourceFile := module.files[function.file]
+
+	log.Default().Printf("entry source file: %v\n", sourceFile)
+
+	return sourceFile
 }
 
 func logRegistersState(ctx *processContext) {
-	line, fileName, fnName := getCurrentLine(ctx)
+	line, fileName, fnName, _ := getCurrentLine(ctx)
 
 	log.Default().Printf("instruction pointer: %s (line %d in %s)\n", fnName, line, fileName)
 }
 
-func getCurrentLine(ctx *processContext) (line int, fileName string, fnName string) {
+func getCurrentLine(ctx *processContext) (line int, fileName string, fnName string, err error) {
 	var regs syscall.PtraceRegs
 	syscall.PtraceGetRegs(ctx.pid, &regs)
 
-	fileName, line, fn := ctx.symTable.PCToLine(regs.Rip)
+	line, fileName, fnName, err = ctx.dwarfData.PCToLine(regs.Rip)
 
-	if fn == nil {
-		fnName = "<no function>"
-	} else {
-		fnName = fn.Name
-	}
-
-	return line, fileName, fnName
+	return line, fileName, fnName, err
 }
 
 func getPCAddressForLine(symTable *gosym.Table, fileName string, lineNr int) uint64 {
