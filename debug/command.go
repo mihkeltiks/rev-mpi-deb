@@ -33,8 +33,14 @@ const (
 	quit
 )
 
-func (cmd *command) handle(ctx *processContext) error {
+type cmdResult struct {
+	err    error
+	exited bool
+}
+
+func (cmd *command) handle(ctx *processContext) *cmdResult {
 	var err error
+	var exited bool
 
 	switch cmd.code {
 	case bpoint:
@@ -42,12 +48,12 @@ func (cmd *command) handle(ctx *processContext) error {
 	case step:
 		singleStep(ctx)
 	case cont:
-		continueExecution(ctx)
+		exited = continueExecution(ctx)
 	case quit:
 		quitDebugger()
 	}
 
-	return err
+	return &cmdResult{err, exited}
 }
 
 func (cmd *command) isProgressCommand() bool {

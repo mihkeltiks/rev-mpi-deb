@@ -8,7 +8,7 @@ import (
 )
 
 func askForInput() *command {
-	printInstructions()
+	printShortUsage()
 
 	userInput := getUserInputLine()
 
@@ -34,6 +34,10 @@ func getUserInputLine() string {
 	text = strings.ToLower(text)
 
 	return text
+}
+
+func printShortUsage() {
+	fmt.Printf("insert command: [b(reakpoint) <lineNr> | s(ingle step) | c(ontinue) | q(uit)]\n")
 }
 
 func printInstructions() {

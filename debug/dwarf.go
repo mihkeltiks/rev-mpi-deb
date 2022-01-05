@@ -5,20 +5,12 @@ import (
 	"debug/elf"
 	"fmt"
 	"io"
+	"log"
 )
 
 type dwarfData struct {
 	modules []*dwarfModule
-	lang    language
 }
-
-type language string
-
-const (
-	golang language = "go"
-	c      language = "c"
-)
-
 type dwarfModule struct {
 	name         string         // name of the module
 	startAddress uint64         // the start of the address range in the module
@@ -102,8 +94,9 @@ func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) 
 				for _, entry := range module.entries {
 
 					if entry.line == line && entry.isStmt {
-						fmt.Printf("file sanity check: %v\n", module.files[entry.file] == file)
-						fmt.Printf("found suitable breakpoint: %v\n", entry)
+						log.Default().Printf("found suitable breakpoint: %v", entry)
+						log.Default().Printf("file sanity check: %v\n", module.files[entry.file] == file)
+
 						return entry.address, nil
 					} else if entry.line == line {
 						fmt.Printf("found non-stmt breakpoint at desired line: %v\n", entry)
@@ -119,18 +112,17 @@ func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) 
 func (d *dwarfData) PCToLine(pc uint64) (line int, file string, functionName string, err error) {
 	for _, module := range d.modules {
 		if pc >= module.startAddress && pc <= module.endAddress {
-			fmt.Printf("probably found correct module for instr %x: %v\n", pc, module.name)
+
+			// for _, entry := range module.entries {
+			// 	if entry.address == pc {
+			// 		fmt.Printf("yay, found correct instr for pc! %v\n", entry)
+			// 		return entry.line, module.files[entry.file], "", nil
+			// 	}
+			// }
 
 			for _, entry := range module.entries {
-				if entry.address == pc {
-					fmt.Printf("yay, found correct instr for pc! %v\n", entry)
-					return entry.line, module.files[entry.file], "", nil
-				}
-			}
-			fmt.Println("did not find exact entry :/")
-			for _, entry := range module.entries {
 				if entry.address == pc-1 {
-					fmt.Printf("found entry with address-1 though: %v\n", entry)
+					// fmt.Printf("found entry with address-1 though: %v\n", entry)
 					return entry.line, module.files[entry.file], "", nil
 				}
 			}
@@ -143,7 +135,6 @@ func getDwarfData(targetFile string) *dwarfData {
 
 	data := &dwarfData{
 		modules: make([]*dwarfModule, 0),
-		lang:    c,
 	}
 	var currentModule *dwarfModule
 
@@ -170,14 +161,14 @@ func getDwarfData(targetFile string) *dwarfData {
 
 		// entering a new module
 		if entry.Tag == dwarf.TagCompileUnit {
-			currentModule = parseModule(entry, data, dwarfRawData)
+			currentModule = parseModule(entry, dwarfRawData)
 
 			data.modules = append(data.modules, currentModule)
 		}
 
 		// parse functions
 		if entry.Tag == dwarf.TagSubprogram {
-			function := parseFunction(entry, data, dwarfRawData)
+			function := parseFunction(entry, dwarfRawData)
 
 			currentModule.functions = append(currentModule.functions, function)
 		}
@@ -186,7 +177,7 @@ func getDwarfData(targetFile string) *dwarfData {
 	return data
 }
 
-func parseFunction(entry *dwarf.Entry, data *dwarfData, dwarfRawData *dwarf.Data) dwarfFunc {
+func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) dwarfFunc {
 	function := dwarfFunc{}
 
 	for _, field := range entry.Field {
@@ -213,7 +204,7 @@ func parseFunction(entry *dwarf.Entry, data *dwarfData, dwarfRawData *dwarf.Data
 	return function
 }
 
-func parseModule(entry *dwarf.Entry, data *dwarfData, dwarfRawData *dwarf.Data) *dwarfModule {
+func parseModule(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfModule {
 	module := dwarfModule{
 		files:     make(map[int]string),
 		functions: make([]dwarfFunc, 0),
@@ -224,9 +215,10 @@ func parseModule(entry *dwarf.Entry, data *dwarfData, dwarfRawData *dwarf.Data) 
 		case dwarf.AttrName:
 			module.name = field.Val.(string)
 		case dwarf.AttrLanguage:
-			if field.Val.(int64) == 22 {
-				data.lang = golang
-			}
+			// language can be inferred from the cu attributes. 22-golang, 12-clang
+			// if field.Val.(int64) == 22 {
+			// 	data.lang = golang
+			// }
 		}
 	}
 

@@ -50,12 +50,11 @@ func restoreCaughtBreakpoint(ctx *processContext) {
 		fmt.Printf("caughtAtBreakpoint false: %x, %v\n", bpointData, bpointData)
 		return
 	}
+	log.Default().Printf("caughtAtBreakpoint true, address %x -> %x,\n", bpointData.address, bpointData.address+1)
 
-	fmt.Printf("caughtAtBreakpoint true: %x, %v\n", bpointData.address, bpointData.data)
-
-	bpointData.address += 1
-
-	fmt.Printf("fixed address: %x\n", bpointData.address)
+	if ctx.lang == c {
+		bpointData.address += 1
+	}
 
 	syscall.PtracePokeData(ctx.pid, uintptr(bpointData.address), bpointData.data)
 }
@@ -63,11 +62,7 @@ func restoreCaughtBreakpoint(ctx *processContext) {
 func continueExecution(ctx *processContext) (exited bool) {
 	var waitStatus syscall.WaitStatus
 
-	i := 0
-	for {
-
-		fmt.Printf("waiting, ws is %v\n", waitStatus.StopSignal().String())
-
+	for i := 0; i < 100; i++ {
 		syscall.PtraceCont(ctx.pid, 0)
 
 		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)
@@ -79,19 +74,13 @@ func continueExecution(ctx *processContext) (exited bool) {
 
 		if waitStatus.StopSignal() == syscall.SIGTRAP && waitStatus.TrapCause() != syscall.PTRACE_EVENT_CLONE {
 			log.Default().Println("hit breakpoint, binary execution paused")
-			break
+			return false
 		} else {
 			// received a signal other than trap/a trap from clone event, continue and wait more
 		}
-		i++
-
-		if i > 10 {
-			fmt.Println("wont wait anymore")
-			break
-		}
 	}
 
-	return false
+	panic(fmt.Sprintf("stuck at wait with signal: %v", waitStatus.StopSignal()))
 }
 
 func singleStep(ctx *processContext) {

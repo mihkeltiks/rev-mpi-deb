@@ -18,7 +18,15 @@ type processContext struct {
 	process    *exec.Cmd      // the running binary
 	pid        int            // the process id of the running binary
 	bpointData *bpointDataMap // holds the instuctions for currently replaced by breakpoints
+	lang
 }
+
+type lang string
+
+const (
+	golang lang = "go"
+	c      lang = "c"
+)
 
 type bpointDataMap map[int]*bpointData // keys - line numbers
 
@@ -37,7 +45,7 @@ func main() {
 
 	// ctx.symTable = getSymbolTable(targetFile)
 
-	ctx.sourceFile = getSourceFileInfo(ctx.dwarfData)
+	ctx.sourceFile, ctx.lang = getSourceFileInfo(ctx.dwarfData)
 
 	ctx.process = startBinary(targetFile)
 
@@ -46,34 +54,38 @@ func main() {
 	_bpointDataMap := make(bpointDataMap)
 	ctx.bpointData = &_bpointDataMap
 
-	var regs syscall.PtraceRegs
+	// var regs syscall.PtraceRegs
 
-	syscall.PtraceGetRegs(ctx.pid, &regs)
-	fmt.Printf("rip register at %x\n", regs.Rip)
+	// syscall.PtraceGetRegs(ctx.pid, &regs)
+	// fmt.Printf("rip register at %x\n", regs.Rip)
 
-	setBreakPoint(ctx, 24)
-	continueExecution(ctx)
+	// setBreakPoint(ctx, 13)
+	// continueExecution(ctx)
 
-	syscall.PtraceGetRegs(ctx.pid, &regs)
-	fmt.Printf("rip register at %x\n", regs.Rip)
+	// syscall.PtraceGetRegs(ctx.pid, &regs)
+	// fmt.Printf("rip register at %x\n", regs.Rip)
 
-	restoreCaughtBreakpoint(ctx)
+	// restoreCaughtBreakpoint(ctx)
 	// continueExecution(ctx)
 
 	//syscall.RawSyscall(syscall.SYS_PERSONALITY) try this to not have to -no-pie c files
+	printInstructions()
 
-	// for {
-	// 	cmd := askForInput()
+	for {
+		cmd := askForInput()
 
-	// 	cmd.handle(ctx)
+		res := cmd.handle(ctx)
 
-	// 	if cmd.isProgressCommand() {
-	// 		ctx.restoreCaughtBreakpoint()
+		if res.exited { // binary exited
+			break
+		}
 
-	// askForInput()
-	// logRegistersState(ctx)
-	// 	}
-	// }
+		if cmd.isProgressCommand() {
+			restoreCaughtBreakpoint(ctx)
+
+			logRegistersState(ctx)
+		}
+	}
 
 }
 
@@ -99,19 +111,23 @@ func startBinary(target string) *exec.Cmd {
 	return cmd
 }
 
-func getSourceFileInfo(d *dwarfData) string {
-	mainFunctionName := map[language]string{
+func getSourceFileInfo(d *dwarfData) (sourceFile string, language lang) {
+	languageEntryFuncs := map[lang]string{
 		golang: "main.main",
 		c:      "main",
-	}[d.lang]
+	}
 
-	module, function := d.lookupFunc(mainFunctionName)
+	module, function := d.lookupFunc(languageEntryFuncs[golang])
+	if module != nil {
+		language = golang
+	} else {
+		module, function = d.lookupFunc(languageEntryFuncs[c])
+		language = c
+	}
 
-	sourceFile := module.files[function.file]
+	sourceFile = module.files[function.file]
 
-	log.Default().Printf("entry source file: %v\n", sourceFile)
-
-	return sourceFile
+	return sourceFile, language
 }
 
 func logRegistersState(ctx *processContext) {
