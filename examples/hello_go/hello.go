@@ -1,10 +1,5 @@
 package main
 
-import (
-	"fmt"
-	"math"
-)
-
 var i int
 
 func main() {
@@ -12,23 +7,23 @@ func main() {
 	hello()
 }
 func hello() {
-	fmt.Print("hello ")
+	print("hello ")
 	world()
 }
 func world() {
-	fmt.Print("world")
+	print("world")
 	if do(i) > 3 {
 		more()
 	}
 }
 func do(value int) int {
-	fmt.Print("!\n")
+	print("!\n")
 	return value + 5
 }
 func more() {
-	i = math.MinInt + math.MaxInt
+	i = 420
 	stuff()
 }
 func stuff() {
-	fmt.Printf("i is %d\n", i)
+	print("i is ", i, "\n")
 }

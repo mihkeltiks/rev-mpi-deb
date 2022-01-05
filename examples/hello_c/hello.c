@@ -1,10 +1,16 @@
+
 #include <stdio.h>
+#include <stdlib.h>
 
-int main(int argc, char** argv) {
-  
+int foo() {
+    printf("bye!\n");
+    exit(0);
+}
+
+int main() {
+    int i = 1;
     printf("hello world!\n");
-
-    for (int i = 1; i <= 3; ++i) {
-        printf("i is %d\n", i);
-    }
+    i += 2;
+    printf("i is %d\n", i);
+    foo();
 }

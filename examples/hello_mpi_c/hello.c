@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 int main(int argc, char** argv) {
   // Initialize the MPI environment. The two arguments to MPI Init are not
@@ -25,10 +26,10 @@ int main(int argc, char** argv) {
          processor_name, world_rank, world_size);
 
 
-  if world_size < 2 {
-      printf("too few processes to do message passing")
-      printf("exiting")
-      exit(0)
+  if (world_size < 2) {
+      printf("too few processes to do message passing");
+      printf("exiting");
+      exit(0);
   }
     
 
@@ -40,7 +41,7 @@ int main(int argc, char** argv) {
       MPI_Recv(&number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 
-  printf("rank %d: number is %d", world_rank, number)
+  printf("rank %d: number is %d", world_rank, number);
 
   // Finalize the MPI environment. No more MPI calls can be made after this
   MPI_Finalize();
