@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"syscall"
+
+	Logger "github.com/ottmartens/cc-rev-db/logger"
 )
 
 func setBreakPoint(ctx *processContext, line int) (err error) {
@@ -14,19 +15,19 @@ func setBreakPoint(ctx *processContext, line int) (err error) {
 	// breakpointAddress, _, err := ctx.symTable.LineToPC(ctx.sourceFile, line)
 
 	if err != nil {
-		log.Default().Printf("cannot set breakpoint at line: %v", err)
+		Logger.Info("cannot set breakpoint at line: %v", err)
 		return err
 	}
 
 	// file, line := getLineForPC(ctx.symTable, breakpointAddress)
-	log.Default().Printf("setting breakpoint at file: %v, line: %d", ctx.sourceFile, line)
+	Logger.Info("setting breakpoint at file: %v, line: %d", ctx.sourceFile, line)
 
 	// store the replaced instruction in the process context
 	// to swap it in later after breakpoint is hit
 	originalInstruction := make([]byte, len(interruptCode))
 	syscall.PtracePeekData(ctx.pid, uintptr(breakpointAddress), originalInstruction)
 
-	log.Default().Printf("saving breakpoint data: %x, %v", breakpointAddress, originalInstruction)
+	Logger.Info("saving breakpoint data: %x, %v", breakpointAddress, originalInstruction)
 
 	(*ctx.bpointData)[line] = &bpointData{
 		breakpointAddress,
@@ -47,10 +48,10 @@ func restoreCaughtBreakpoint(ctx *processContext) {
 	bpointData := (*ctx.bpointData)[line]
 
 	if bpointData == nil {
-		fmt.Printf("caughtAtBreakpoint false: %x, %v\n", bpointData, bpointData)
+		Logger.Info("caughtAtBreakpoint false: %x, %v", bpointData, bpointData)
 		return
 	}
-	log.Default().Printf("caughtAtBreakpoint true, address %x -> %x,\n", bpointData.address, bpointData.address+1)
+	Logger.Info("caughtAtBreakpoint true, address %x -> %x", bpointData.address, bpointData.address+1)
 
 	if ctx.lang == c {
 		bpointData.address += 1
@@ -68,12 +69,12 @@ func continueExecution(ctx *processContext) (exited bool) {
 		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)
 
 		if waitStatus.Exited() {
-			log.Default().Printf("The binary exited with code %v", waitStatus.ExitStatus())
+			Logger.Info("The binary exited with code %v", waitStatus.ExitStatus())
 			return true
 		}
 
 		if waitStatus.StopSignal() == syscall.SIGTRAP && waitStatus.TrapCause() != syscall.PTRACE_EVENT_CLONE {
-			log.Default().Println("hit breakpoint, binary execution paused")
+			Logger.Info("hit breakpoint, binary execution paused")
 			return false
 		} else {
 			// received a signal other than trap/a trap from clone event, continue and wait more

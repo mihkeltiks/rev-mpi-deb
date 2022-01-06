@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -11,18 +10,6 @@ type command struct {
 	code   commandCode
 	lineNr int
 }
-
-// type Weekday string
-
-// const (
-// 	Sunday    Weekday = "Sunday"
-// 	Monday    Weekday = "Monday"
-// 	Tuesday   Weekday = "Tuesday"
-// 	Wednesday Weekday = "Wednesday"
-// 	Thursday  Weekday = "Thursday"
-// 	Friday    Weekday = "Friday"
-// 	Saturday  Weekday = "Saturday"
-// )
 
 type commandCode int
 
@@ -60,25 +47,9 @@ func (cmd *command) isProgressCommand() bool {
 	return cmd.code == step || cmd.code == cont
 }
 
-func (c command) String() string {
-	commandStrings := map[commandCode]string{
-		bpoint: "bpoint",
-		step:   "step",
-		cont:   "continue",
-		quit:   "quit",
-	}
-
-	bpointString := ""
-	if c.code == bpoint {
-		bpointString = fmt.Sprintf(", line %d", c.lineNr)
-	}
-
-	return fmt.Sprintf("Command{%s%s} \n", commandStrings[c.code], bpointString)
-}
-
 func parseCommandFromString(input string) (c *command) {
 
-	breakPointRegexp := regexp.MustCompile("^b \\d+$")
+	breakPointRegexp := regexp.MustCompile(`^b \d+$`)
 
 	switch {
 	case breakPointRegexp.Match([]byte(input)):

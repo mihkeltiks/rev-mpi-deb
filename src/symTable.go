@@ -39,18 +39,3 @@ func getSymbolTable(program string) *gosym.Table {
 
 	return symTable
 }
-
-func getLineForPC(symTable *gosym.Table, pc uint64) (fileName string, line int) {
-	fileName, line, _ = symTable.PCToLine(pc)
-
-	return fileName, line
-}
-
-func getPCForLine(symTable *gosym.Table, fileName string, lineNr int) (pc uint64, fn *gosym.Func) {
-	pc, fn, err := symTable.LineToPC(fileName, lineNr)
-
-	if err != nil {
-		panic(err)
-	}
-	return pc, fn
-}

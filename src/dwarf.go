@@ -5,7 +5,8 @@ import (
 	"debug/elf"
 	"fmt"
 	"io"
-	"log"
+
+	Logger "github.com/ottmartens/cc-rev-db/logger"
 )
 
 type dwarfData struct {
@@ -18,7 +19,6 @@ type dwarfModule struct {
 	entries      []dwarfEntry   // entries in this module
 	files        map[int]string // source files of this module
 	functions    []dwarfFunc    // functions declared in this module
-	isGo         bool           // is a golang module
 }
 
 type dwarfEntry struct {
@@ -94,8 +94,8 @@ func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) 
 				for _, entry := range module.entries {
 
 					if entry.line == line && entry.isStmt {
-						log.Default().Printf("found suitable breakpoint: %v", entry)
-						log.Default().Printf("file sanity check: %v\n", module.files[entry.file] == file)
+						Logger.Info("found suitable breakpoint: %v", entry)
+						Logger.Info("file sanity check: %v\n", module.files[entry.file] == file)
 
 						return entry.address, nil
 					} else if entry.line == line {

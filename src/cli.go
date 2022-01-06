@@ -37,7 +37,7 @@ func getUserInputLine() string {
 }
 
 func printShortUsage() {
-	fmt.Printf("insert command: [b(reakpoint) <lineNr> | s(ingle step) | c(ontinue) | q(uit)]\n")
+	fmt.Printf("insert command: [b(reakpoint) <lineNr> | s(ingle step) | c(ontinue) | q(uit)]\n  ")
 }
 
 func printInstructions() {

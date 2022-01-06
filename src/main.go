@@ -3,12 +3,12 @@ package main
 import (
 	"debug/gosym"
 	"errors"
-	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
+
+	Logger "github.com/ottmartens/cc-rev-db/logger"
 )
 
 type processContext struct {
@@ -36,7 +36,6 @@ type bpointData struct {
 }
 
 func main() {
-
 	targetFile := getValuesFromArgs()
 
 	ctx := &processContext{}
@@ -105,7 +104,8 @@ func startBinary(target string) *exec.Cmd {
 
 	if err != nil {
 		// arrived at auto-inserted initial breakpoint trap
-		log.Default().Println("binary started, waiting for continuation")
+		Logger.Info("binary started, waiting for continuation")
+
 	}
 
 	return cmd
@@ -133,7 +133,7 @@ func getSourceFileInfo(d *dwarfData) (sourceFile string, language lang) {
 func logRegistersState(ctx *processContext) {
 	line, fileName, fnName, _ := getCurrentLine(ctx)
 
-	log.Default().Printf("instruction pointer: %s (line %d in %s)\n", fnName, line, fileName)
+	Logger.Info("instruction pointer: %s (line %d in %s)\n", fnName, line, fileName)
 }
 
 func getCurrentLine(ctx *processContext) (line int, fileName string, fnName string, err error) {
@@ -145,24 +145,14 @@ func getCurrentLine(ctx *processContext) (line int, fileName string, fnName stri
 	return line, fileName, fnName, err
 }
 
-func getPCAddressForLine(symTable *gosym.Table, fileName string, lineNr int) uint64 {
-	var pc uint64
-	var err error
-
-	pc, _, err = symTable.LineToPC(fileName, lineNr)
-
-	if err != nil {
-		panic(fmt.Sprintf("Could not get address for line %d: %v", lineNr, err))
-	}
-
-	return pc
-}
-
 // parse and validate command line arguments
 func getValuesFromArgs() string {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: debug <target binary>")
-		os.Exit(2)
+		// fmt.Println("Usage: debug <target binary>")
+		// os.Exit(2)
+
+		Logger.Info("no binary specified. defaulting to go example")
+		return "bin/example-binaries/hello_go"
 	}
 
 	targetFilePath, err := filepath.Abs(os.Args[1])
