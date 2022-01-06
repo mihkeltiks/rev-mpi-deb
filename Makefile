@@ -1,2 +1,2 @@
 build:
-	go build -o bin/debug *.go
+	cd src && go build -o ../bin/debug *.go
