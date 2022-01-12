@@ -32,13 +32,8 @@ func setBreakPoint(ctx *processContext, line int) (err error) {
 		originalInstruction,
 	}
 
-	// set breakpoint (insert interrup code at the first pc address at the line)
+	// set breakpoint (insert interrupt code at the first valid pc address at the line)
 	syscall.PtracePokeData(ctx.pid, uintptr(breakpointAddress), interruptCode)
-
-	// print the entered instruction + trailing
-	// insertedData := make([]byte, 4)
-	// syscall.PtracePeekData(ctx.pid, uintptr(breakpointAddress), insertedData)
-	// fmt.Printf("inserted data: %v, len %d\n", insertedData, len(insertedData))
 
 	return err
 }
@@ -59,10 +54,6 @@ func restoreCaughtBreakpoint(ctx *processContext) {
 
 	var regs syscall.PtraceRegs
 	syscall.PtraceGetRegs(ctx.pid, &regs)
-
-	// data := make([]byte, 4)
-	// syscall.PtracePeekData(ctx.pid, uintptr(regs.Rip), data)
-	// fmt.Printf("data at ip: %v\n", data)
 
 	// rewind RIP to the replaced instruction
 	regs.Rip -= 1
