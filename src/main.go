@@ -1,8 +1,8 @@
 package main
 
 import (
-	"debug/gosym"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +14,6 @@ import (
 type processContext struct {
 	sourceFile string         // source code file
 	dwarfData  *dwarfData     //
-	symTable   *gosym.Table   // symbol table for the source code file
 	process    *exec.Cmd      // the running binary
 	pid        int            // the process id of the running binary
 	bpointData *bpointDataMap // holds the instuctions for currently replaced by breakpoints
@@ -53,21 +52,6 @@ func main() {
 	_bpointDataMap := make(bpointDataMap)
 	ctx.bpointData = &_bpointDataMap
 
-	// var regs syscall.PtraceRegs
-
-	// syscall.PtraceGetRegs(ctx.pid, &regs)
-	// fmt.Printf("rip register at %x\n", regs.Rip)
-
-	// setBreakPoint(ctx, 13)
-	// continueExecution(ctx)
-
-	// syscall.PtraceGetRegs(ctx.pid, &regs)
-	// fmt.Printf("rip register at %x\n", regs.Rip)
-
-	// restoreCaughtBreakpoint(ctx)
-	// continueExecution(ctx)
-
-	//syscall.RawSyscall(syscall.SYS_PERSONALITY) try this to not have to -no-pie c files
 	printInstructions()
 
 	for {
@@ -131,14 +115,20 @@ func getSourceFileInfo(d *dwarfData) (sourceFile string, language lang) {
 }
 
 func logRegistersState(ctx *processContext) {
-	line, fileName, fnName, _ := getCurrentLine(ctx)
+	line, fileName, fnName, _ := getCurrentLine(ctx, false)
 
 	Logger.Info("instruction pointer: %s (line %d in %s)\n", fnName, line, fileName)
 }
 
-func getCurrentLine(ctx *processContext) (line int, fileName string, fnName string, err error) {
+func getCurrentLine(ctx *processContext, rewindIP bool) (line int, fileName string, fnName string, err error) {
 	var regs syscall.PtraceRegs
 	syscall.PtraceGetRegs(ctx.pid, &regs)
+
+	// if currently stopped by a breakpoint, rewind the instruction pointer by 1
+	// to find the correct instruction
+	if rewindIP {
+		regs.Rip -= 1
+	}
 
 	line, fileName, fnName, err = ctx.dwarfData.PCToLine(regs.Rip)
 
@@ -148,10 +138,16 @@ func getCurrentLine(ctx *processContext) (line int, fileName string, fnName stri
 // parse and validate command line arguments
 func getValuesFromArgs() string {
 	if len(os.Args) < 2 {
-		// fmt.Println("Usage: debug <target binary>")
-		// os.Exit(2)
+		fmt.Println("Usage: debug <target binary>")
+		os.Exit(2)
+	}
 
-		Logger.Info("no binary specified. defaulting to go example")
+	switch os.Args[1] {
+	case "c":
+		Logger.Info("c specified, loading example c binary")
+		return "bin/example-binaries/hello_c"
+	case "go":
+		Logger.Info("go specified, loading example c binary")
 		return "bin/example-binaries/hello_go"
 	}
 

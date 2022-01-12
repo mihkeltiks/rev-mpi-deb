@@ -27,8 +27,6 @@ func setBreakPoint(ctx *processContext, line int) (err error) {
 	originalInstruction := make([]byte, len(interruptCode))
 	syscall.PtracePeekData(ctx.pid, uintptr(breakpointAddress), originalInstruction)
 
-	Logger.Info("saving breakpoint data: %x, %v", breakpointAddress, originalInstruction)
-
 	(*ctx.bpointData)[line] = &bpointData{
 		breakpointAddress,
 		originalInstruction,
@@ -37,26 +35,40 @@ func setBreakPoint(ctx *processContext, line int) (err error) {
 	// set breakpoint (insert interrup code at the first pc address at the line)
 	syscall.PtracePokeData(ctx.pid, uintptr(breakpointAddress), interruptCode)
 
+	// print the entered instruction + trailing
+	// insertedData := make([]byte, 4)
+	// syscall.PtracePeekData(ctx.pid, uintptr(breakpointAddress), insertedData)
+	// fmt.Printf("inserted data: %v, len %d\n", insertedData, len(insertedData))
+
 	return err
 }
 
 // restores the original instruction if the executable
 // is currently caught at a breakpoint
 func restoreCaughtBreakpoint(ctx *processContext) {
-	line, _, _, _ := getCurrentLine(ctx)
+	line, file, _, _ := getCurrentLine(ctx, true)
 
 	bpointData := (*ctx.bpointData)[line]
 
 	if bpointData == nil {
-		Logger.Info("caughtAtBreakpoint false: %x, %v", bpointData, bpointData)
+		Logger.Info("Not currently caught at breakpoint: line: %d, file: %v", line, file)
 		return
 	}
-	Logger.Info("caughtAtBreakpoint true, address %x -> %x", bpointData.address, bpointData.address+1)
 
-	if ctx.lang == c {
-		bpointData.address += 1
-	}
+	Logger.Info("Caught at a breakpoint: line: %d, file: %v", line, file)
 
+	var regs syscall.PtraceRegs
+	syscall.PtraceGetRegs(ctx.pid, &regs)
+
+	// data := make([]byte, 4)
+	// syscall.PtracePeekData(ctx.pid, uintptr(regs.Rip), data)
+	// fmt.Printf("data at ip: %v\n", data)
+
+	// rewind RIP to the replaced instruction
+	regs.Rip -= 1
+	syscall.PtraceSetRegs(ctx.pid, &regs)
+
+	// replace breakpoint with original instruction
 	syscall.PtracePokeData(ctx.pid, uintptr(bpointData.address), bpointData.data)
 }
 
@@ -74,11 +86,12 @@ func continueExecution(ctx *processContext) (exited bool) {
 		}
 
 		if waitStatus.StopSignal() == syscall.SIGTRAP && waitStatus.TrapCause() != syscall.PTRACE_EVENT_CLONE {
-			Logger.Info("hit breakpoint, binary execution paused")
+			Logger.Info("binary hit trap, execution paused")
 			return false
-		} else {
-			// received a signal other than trap/a trap from clone event, continue and wait more
 		}
+		// else {
+		// received a signal other than trap/a trap from clone event, continue and wait more
+		// }
 	}
 
 	panic(fmt.Sprintf("stuck at wait with signal: %v", waitStatus.StopSignal()))

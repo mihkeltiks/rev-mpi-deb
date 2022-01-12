@@ -58,14 +58,14 @@ type dwarfFunc struct {
 	highPC uint64 // last PC address for the function
 }
 
-func (d *dwarfData) lookupModule(moduleName string) *dwarfModule {
-	for _, module := range d.modules {
-		if module.name == moduleName {
-			return module
-		}
-	}
-	return nil
-}
+// func (d *dwarfData) lookupModule(moduleName string) *dwarfModule {
+// 	for _, module := range d.modules {
+// 		if module.name == moduleName {
+// 			return module
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (m *dwarfModule) lookupFunc(functionName string) *dwarfFunc {
 	for _, function := range m.functions {
@@ -112,16 +112,8 @@ func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) 
 func (d *dwarfData) PCToLine(pc uint64) (line int, file string, functionName string, err error) {
 	for _, module := range d.modules {
 		if pc >= module.startAddress && pc <= module.endAddress {
-
-			// for _, entry := range module.entries {
-			// 	if entry.address == pc {
-			// 		fmt.Printf("yay, found correct instr for pc! %v\n", entry)
-			// 		return entry.line, module.files[entry.file], "", nil
-			// 	}
-			// }
-
 			for _, entry := range module.entries {
-				if entry.address == pc-1 {
+				if entry.address == pc {
 					// fmt.Printf("found entry with address-1 though: %v\n", entry)
 					return entry.line, module.files[entry.file], "", nil
 				}
