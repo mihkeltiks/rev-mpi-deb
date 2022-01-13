@@ -41,8 +41,6 @@ func main() {
 
 	ctx.dwarfData = getDwarfData(targetFile)
 
-	// ctx.symTable = getSymbolTable(targetFile)
-
 	ctx.sourceFile, ctx.lang = getSourceFileInfo(ctx.dwarfData)
 
 	ctx.process = startBinary(targetFile)
@@ -89,7 +87,6 @@ func startBinary(target string) *exec.Cmd {
 	if err != nil {
 		// arrived at auto-inserted initial breakpoint trap
 		Logger.Info("binary started, waiting for continuation")
-
 	}
 
 	return cmd
