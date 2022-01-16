@@ -63,11 +63,9 @@ func main() {
 
 		if cmd.isProgressCommand() {
 			restoreCaughtBreakpoint(ctx)
-
 			logRegistersState(ctx)
 		}
 	}
-
 }
 
 func startBinary(target string) *exec.Cmd {
@@ -112,14 +110,23 @@ func getSourceFileInfo(d *dwarfData) (sourceFile string, language lang) {
 }
 
 func logRegistersState(ctx *processContext) {
-	line, fileName, fnName, _ := getCurrentLine(ctx, false)
+	registers, line, fileName, _, _ := getCurrentLine(ctx, false)
 
-	Logger.Info("instruction pointer: %s (line %d in %s)\n", fnName, line, fileName)
+	Logger.Info("instruction pointer: %x (line %d in %s)\n", registers.Rip, line, fileName)
+
+	data := make([]byte, 4)
+	syscall.PtracePeekData(ctx.pid, uintptr(registers.Rip), data)
+	Logger.Info("ip pointing to: %v\n", data)
 }
 
-func getCurrentLine(ctx *processContext, rewindIP bool) (line int, fileName string, fnName string, err error) {
+func getCurrentLine(ctx *processContext, rewindIP bool) (registers *syscall.PtraceRegs, line int, fileName string, fnName string, err error) {
 	var regs syscall.PtraceRegs
-	syscall.PtraceGetRegs(ctx.pid, &regs)
+
+	err = syscall.PtraceGetRegs(ctx.pid, &regs)
+
+	if err != nil {
+		fmt.Printf("getregs error: %v\n", err)
+	}
 
 	// if currently stopped by a breakpoint, rewind the instruction pointer by 1
 	// to find the correct instruction
@@ -129,7 +136,7 @@ func getCurrentLine(ctx *processContext, rewindIP bool) (line int, fileName stri
 
 	line, fileName, fnName, err = ctx.dwarfData.PCToLine(regs.Rip)
 
-	return line, fileName, fnName, err
+	return &regs, line, fileName, fnName, err
 }
 
 // parse and validate command line arguments

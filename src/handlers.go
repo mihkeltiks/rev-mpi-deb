@@ -41,7 +41,7 @@ func setBreakPoint(ctx *processContext, line int) (err error) {
 // restores the original instruction if the executable
 // is currently caught at a breakpoint
 func restoreCaughtBreakpoint(ctx *processContext) {
-	line, file, _, _ := getCurrentLine(ctx, true)
+	_, line, file, _, _ := getCurrentLine(ctx, true)
 
 	bpointData := (*ctx.bpointData)[line]
 
