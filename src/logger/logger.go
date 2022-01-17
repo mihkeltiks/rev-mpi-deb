@@ -5,11 +5,11 @@ import (
 	"time"
 )
 
-type Color string
+type color string
 
 const (
-	cyan  Color = "\033[36m"
-	reset Color = "\033[0m"
+	cyan  color = "\033[36m"
+	reset color = "\033[0m"
 )
 
 func Info(str string, args ...interface{}) {

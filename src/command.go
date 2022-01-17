@@ -7,8 +7,9 @@ import (
 )
 
 type command struct {
-	code   commandCode
-	lineNr int
+	code    commandCode
+	lineNr  int
+	varName string
 }
 
 type commandCode int
@@ -17,7 +18,9 @@ const (
 	bpoint commandCode = iota
 	step
 	cont
+	print
 	quit
+	help
 )
 
 type cmdResult struct {
@@ -36,8 +39,12 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 		singleStep(ctx)
 	case cont:
 		exited = continueExecution(ctx)
+	case print:
+		printVariable(ctx, cmd.varName)
 	case quit:
 		quitDebugger()
+	case help:
+		printInstructions()
 	}
 
 	return &cmdResult{err, exited}
@@ -50,6 +57,7 @@ func (cmd *command) isProgressCommand() bool {
 func parseCommandFromString(input string) (c *command) {
 
 	breakPointRegexp := regexp.MustCompile(`^b \d+$`)
+	printRegexp := regexp.MustCompile(`^p [a-zA-Z_][a-zA-Z0-9_]*$`)
 
 	switch {
 	case breakPointRegexp.Match([]byte(input)):
@@ -63,8 +71,16 @@ func parseCommandFromString(input string) (c *command) {
 	case input == "s":
 		return &command{code: step}
 
+	case printRegexp.Match([]byte(input)):
+		varName := strings.Split(input, " ")[1]
+
+		return &command{code: print, varName: varName}
+
 	case input == "q":
 		return &command{code: quit}
+
+	case input == "help":
+		return &command{code: help}
 
 	default:
 		return nil

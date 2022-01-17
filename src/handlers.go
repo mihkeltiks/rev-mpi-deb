@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"syscall"
@@ -90,6 +91,47 @@ func continueExecution(ctx *processContext) (exited bool) {
 
 func singleStep(ctx *processContext) {
 	syscall.PtraceSingleStep(ctx.pid)
+}
+
+func printVariable(ctx *processContext, varName string) {
+
+	variable := ctx.dwarfData.lookupVariable(varName)
+
+	if variable == nil {
+		fmt.Printf("Cannot find variable: %s\n", varName)
+		return
+	}
+
+	address, _, err := variable.locationDecoded()
+
+	if err != nil {
+		panic(fmt.Sprintf("Error decoding variable: %v", err))
+	}
+
+	if address == 0 {
+		fmt.Println("Cannot locate this variable")
+		return
+	}
+
+	data := make([]byte, variable.baseType.byteSize)
+
+	syscall.PtracePeekData(ctx.pid, uintptr(address), data)
+
+	Logger.Info("Printing variable %v", variable)
+
+	var value interface{}
+
+	switch variable.baseType.byteSize {
+	case 4:
+		value = int32(binary.LittleEndian.Uint32(data))
+	case 8:
+		value = int64(binary.LittleEndian.Uint64(data))
+	default:
+		fmt.Printf("unknown bytesize? %v\n", variable)
+		return
+	}
+
+	fmt.Printf("Value of variable %s: %v\n", varName, value)
 }
 
 func quitDebugger() {

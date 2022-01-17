@@ -8,14 +8,14 @@ import (
 )
 
 func askForInput() *command {
-	printShortUsage()
+	printPrompt()
 
 	userInput := getUserInputLine()
 
 	command := parseCommandFromString(userInput)
 
 	if command == nil {
-		fmt.Println("Invalid input")
+		fmt.Println(`Invalid input. Type "help" to see available commands`)
 		return askForInput()
 	}
 
@@ -36,8 +36,8 @@ func getUserInputLine() string {
 	return text
 }
 
-func printShortUsage() {
-	fmt.Printf("insert command: [b(reakpoint) <lineNr> | s(ingle step) | c(ontinue) | q(uit)]\n  ")
+func printPrompt() {
+	fmt.Printf("insert command > ")
 }
 
 func printInstructions() {
@@ -47,6 +47,8 @@ func printInstructions() {
 	fmt.Println("  b <lineNr> \t set breakpoint")
 	fmt.Println("  s  \t\t single step forward")
 	fmt.Println("  c  \t\t continue execution")
+	fmt.Println("  p <var>  \t print a variable")
 	fmt.Println("  q  \t\t quit")
+	fmt.Println("  help  \t show this again")
 	fmt.Println()
 }
