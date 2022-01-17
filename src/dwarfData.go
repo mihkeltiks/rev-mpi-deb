@@ -1,11 +1,15 @@
 package main
 
+//lint:file-ignore U1000
+
 import (
+	"bytes"
 	"debug/dwarf"
 	"debug/elf"
 	"fmt"
 	"io"
 
+	"github.com/go-delve/delve/pkg/dwarf/op"
 	Logger "github.com/ottmartens/cc-rev-db/logger"
 )
 
@@ -13,12 +17,13 @@ type dwarfData struct {
 	modules []*dwarfModule
 }
 type dwarfModule struct {
-	name         string         // name of the module
-	startAddress uint64         // the start of the address range in the module
-	endAddress   uint64         // the end of the address range in the module
-	entries      []dwarfEntry   // entries in this module
-	files        map[int]string // source files of this module
-	functions    []dwarfFunc    // functions declared in this module
+	name         string           // name of the module
+	startAddress uint64           // the start of the address range in the module
+	endAddress   uint64           // the end of the address range in the module
+	entries      []dwarfEntry     // entries in this module
+	files        map[int]string   // source files of this module
+	functions    []*dwarfFunc     // functions declared in this module
+	variables    []*dwarfVariable // variables declared in this module
 }
 
 type dwarfEntry struct {
@@ -58,19 +63,38 @@ type dwarfFunc struct {
 	highPC uint64 // last PC address for the function
 }
 
-// func (d *dwarfData) lookupModule(moduleName string) *dwarfModule {
-// 	for _, module := range d.modules {
-// 		if module.name == moduleName {
-// 			return module
-// 		}
-// 	}
-// 	return nil
-// }
+type dwarfBaseType struct {
+	name     string
+	byteSize int64
+	encoding string
+}
+
+type dwarfVariable struct {
+	name                 string         // variable name
+	baseType             *dwarfBaseType // type of the variable
+	locationInstructions []byte         // raw dwarf location instructions
+	function             *dwarfFunc     // the function where variable is declared (might be nil)
+}
+
+func (v *dwarfVariable) locationString() string {
+	buf := new(bytes.Buffer)
+	op.PrettyPrint(buf, v.locationInstructions)
+	return buf.String()
+}
+
+func (v *dwarfVariable) String() string {
+	return fmt.Sprintf("variable{name:%v, type: %v, location: %v}", v.name, v.baseType.name, v.locationString())
+}
+
+func (v *dwarfVariable) locationDecoded() (address uint64, pieces []op.Piece, err error) {
+	addr, pieces, err := op.ExecuteStackProgram(op.DwarfRegisters{}, v.locationInstructions, 8, nil)
+	return uint64(addr), pieces, err
+}
 
 func (m *dwarfModule) lookupFunc(functionName string) *dwarfFunc {
 	for _, function := range m.functions {
 		if function.name == functionName {
-			return &function
+			return function
 		}
 	}
 	return nil
@@ -83,6 +107,18 @@ func (d *dwarfData) lookupFunc(functionName string) (module *dwarfModule, functi
 		}
 	}
 	return nil, nil
+}
+
+func (d *dwarfData) lookupVariable(varName string) *dwarfVariable {
+	for _, module := range d.modules {
+		for _, variable := range module.variables {
+			if variable.name == varName {
+				return variable
+			}
+		}
+	}
+
+	return nil
 }
 
 func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) {
@@ -129,6 +165,9 @@ func getDwarfData(targetFile string) *dwarfData {
 		modules: make([]*dwarfModule, 0),
 	}
 	var currentModule *dwarfModule
+	var currentFunction *dwarfFunc
+
+	baseTypeMap := make(map[uint32]*dwarfBaseType)
 
 	elfFile, err := elf.Open(targetFile)
 	if err != nil {
@@ -151,29 +190,49 @@ func getDwarfData(targetFile string) *dwarfData {
 			panic(err)
 		}
 
+		// base type declaration
+		if entry.Tag == dwarf.TagBaseType {
+			baseTypeMap[uint32(entry.Offset)] = &dwarfBaseType{
+				name:     entry.Val(dwarf.AttrName).(string),
+				byteSize: entry.Val(dwarf.AttrByteSize).(int64),
+			}
+		}
+
 		// entering a new module
 		if entry.Tag == dwarf.TagCompileUnit {
 			currentModule = parseModule(entry, dwarfRawData)
 
 			data.modules = append(data.modules, currentModule)
+
+			currentFunction = nil
 		}
 
-		// parse functions
+		// function declaration
 		if entry.Tag == dwarf.TagSubprogram {
-			function := parseFunction(entry, dwarfRawData)
+			currentFunction = parseFunction(entry, dwarfRawData)
 
-			currentModule.functions = append(currentModule.functions, function)
+			currentModule.functions = append(currentModule.functions, currentFunction)
+		}
+
+		// variable declaration
+		if entry.Tag == dwarf.TagVariable {
+			variable := &dwarfVariable{
+				name:                 entry.Val(dwarf.AttrName).(string),
+				locationInstructions: entry.Val(dwarf.AttrLocation).([]byte),
+				baseType:             baseTypeMap[uint32(entry.Val(dwarf.AttrType).(dwarf.Offset))],
+				function:             currentFunction,
+			}
+			currentModule.variables = append(currentModule.variables, variable)
 		}
 	}
 
 	return data
 }
 
-func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) dwarfFunc {
+func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfFunc {
 	function := dwarfFunc{}
 
 	for _, field := range entry.Field {
-		// fmt.Printf("func %v - %v\n", field.Attr.GoString(), field.Val)
 		switch field.Attr {
 		case dwarf.AttrName:
 			function.name = field.Val.(string)
@@ -193,13 +252,14 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) dwarfFunc {
 	function.lowPC = ranges[0][0]
 	function.highPC = ranges[0][1]
 
-	return function
+	return &function
 }
 
 func parseModule(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfModule {
 	module := dwarfModule{
 		files:     make(map[int]string),
-		functions: make([]dwarfFunc, 0),
+		functions: make([]*dwarfFunc, 0),
+		variables: make([]*dwarfVariable, 0),
 	}
 
 	for _, field := range entry.Field {
