@@ -1,6 +1,6 @@
 package main
 
-//lint:file-ignore U1000
+//lint:file-ignore U1000 ignore unused helpers
 
 import (
 	"bytes"
@@ -83,7 +83,7 @@ func (v *dwarfVariable) locationString() string {
 }
 
 func (v *dwarfVariable) String() string {
-	return fmt.Sprintf("variable{name:%v, type: %v, location: %v}", v.name, v.baseType.name, v.locationString())
+	return fmt.Sprintf("{name:%v, type: %v, location: %v}", v.name, v.baseType.name, v.locationString())
 }
 
 func (v *dwarfVariable) locationDecoded() (address uint64, pieces []op.Piece, err error) {
