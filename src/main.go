@@ -149,10 +149,10 @@ func getValuesFromArgs() string {
 	switch os.Args[1] {
 	case "c":
 		Logger.Info("c specified, loading example c binary")
-		return "bin/example-binaries/hello_c"
+		return "examples/hello_c/hello"
 	case "go":
 		Logger.Info("go specified, loading example c binary")
-		return "bin/example-binaries/hello_go"
+		return "examples/hello_go/hello"
 	}
 
 	targetFilePath, err := filepath.Abs(os.Args[1])

@@ -8,6 +8,7 @@ import (
 	"debug/elf"
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/go-delve/delve/pkg/dwarf/op"
 	Logger "github.com/ottmartens/cc-rev-db/logger"
@@ -217,11 +218,17 @@ func getDwarfData(targetFile string) *dwarfData {
 		// variable declaration
 		if entry.Tag == dwarf.TagVariable {
 			variable := &dwarfVariable{
-				name:                 entry.Val(dwarf.AttrName).(string),
-				locationInstructions: entry.Val(dwarf.AttrLocation).([]byte),
-				baseType:             baseTypeMap[uint32(entry.Val(dwarf.AttrType).(dwarf.Offset))],
-				function:             currentFunction,
+				name:     entry.Val(dwarf.AttrName).(string),
+				baseType: baseTypeMap[uint32(entry.Val(dwarf.AttrType).(dwarf.Offset))],
+				function: currentFunction,
 			}
+
+			locationInstructions := entry.Val(dwarf.AttrLocation)
+
+			if reflect.TypeOf(locationInstructions) != nil {
+				variable.locationInstructions = entry.Val(dwarf.AttrLocation).([]byte)
+			}
+
 			currentModule.variables = append(currentModule.variables, variable)
 		}
 	}
@@ -242,6 +249,12 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfFunc {
 			function.line = field.Val.(int64)
 		case dwarf.AttrDeclColumn:
 			function.col = field.Val.(int64)
+		case dwarf.AttrFrameBase:
+			// fmt.Printf("frame base : %v, %v, %T\n", field.Attr.GoString(), field.Val, field.Val)
+
+			// memory, pieces, err := op.ExecuteStackProgram(op.DwarfRegisters{}, field.Val.([]byte), 8, nil)
+
+			// fmt.Printf("%v, %v, %v\n", memory, pieces, err)
 		}
 	}
 
@@ -271,6 +284,8 @@ func parseModule(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfModule {
 			// if field.Val.(int64) == 22 {
 			// 	data.lang = golang
 			// }
+		case dwarf.AttrProducer:
+			// can infer arch
 		}
 	}
 
