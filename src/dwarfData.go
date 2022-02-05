@@ -51,8 +51,12 @@ type dwarfEntry struct {
 	isStmt bool
 }
 
-func (de dwarfEntry) String() string {
-	return fmt.Sprintf("entry{address: %x, line: %d, isStmt: %v}", de.address, de.line, de.isStmt)
+func (m dwarfModule) String() string {
+	return fmt.Sprintf("module{\nname:%s\nstart:%x\nend:%x\nfiles: %v\nfunctions: %v\nentries: %v\n}", m.name, m.startAddress, m.endAddress, m.files, m.functions, m.entries)
+}
+
+func (e dwarfEntry) String() string {
+	return fmt.Sprintf("entry{address: %x, file:%d, line: %d, col: %d, isStmt: %v}", e.address, e.file, e.line, e.col, e.isStmt)
 }
 
 type dwarfFunc struct {
@@ -126,7 +130,6 @@ func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) 
 
 	for _, module := range d.modules {
 		for _, moduleFile := range module.files {
-			// correct module (this could be simplified by refactoring dwarfData)
 			if moduleFile == file {
 				for _, entry := range module.entries {
 
@@ -151,7 +154,6 @@ func (d *dwarfData) PCToLine(pc uint64) (line int, file string, functionName str
 		if pc >= module.startAddress && pc <= module.endAddress {
 			for _, entry := range module.entries {
 				if entry.address == pc {
-					// fmt.Printf("found entry with address-1 though: %v\n", entry)
 					return entry.line, module.files[entry.file], "", nil
 				}
 			}
@@ -202,6 +204,7 @@ func getDwarfData(targetFile string) *dwarfData {
 		// entering a new module
 		if entry.Tag == dwarf.TagCompileUnit {
 			currentModule = parseModule(entry, dwarfRawData)
+			fmt.Printf("new compileUnit:\n%v\n", currentModule)
 
 			data.modules = append(data.modules, currentModule)
 
@@ -211,6 +214,7 @@ func getDwarfData(targetFile string) *dwarfData {
 		// function declaration
 		if entry.Tag == dwarf.TagSubprogram {
 			currentFunction = parseFunction(entry, dwarfRawData)
+			fmt.Printf("new function:\n%v\n", currentFunction)
 
 			currentModule.functions = append(currentModule.functions, currentFunction)
 		}

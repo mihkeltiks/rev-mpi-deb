@@ -147,6 +147,9 @@ func getValuesFromArgs() string {
 	}
 
 	switch os.Args[1] {
+	case "mpi":
+		Logger.Info("mpi specified, loading example mpi binary")
+		return "examples/hello_mpi_c/hello"
 	case "c":
 		Logger.Info("c specified, loading example c binary")
 		return "examples/hello_c/hello"
