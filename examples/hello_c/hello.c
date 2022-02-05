@@ -7,13 +7,14 @@ int global = 1234;
 int max = INT_MAX;
 int min = INT_MIN;
 
-
-int foo() {
+int foo()
+{
     printf("bye!\n");
     exit(0);
 }
 
-int main() {
+int main()
+{
     int i = 1;
     printf("hello world!\n");
     i += 2;
