@@ -1,3 +1,9 @@
 bin/debug
 
+bin/targets/*
+!bin/targets/.gitkeep
+
+bin/temp/*
+!bin/temp/.gitkeep
+
 **/.vscode
