@@ -14,7 +14,7 @@ const (
 	TEMP_FOLDER         = "bin/temp"
 	DEST_FOLDER         = "bin/targets"
 	WRAPPED_MPI_INCLUDE = `#include "mpi_wrap.h"`
-	WRAPPED_MPI_PATH    = "compiler/mpi_wrap_include"
+	WRAPPED_MPI_PATH    = "src/compiler/mpi_wrap_include"
 )
 
 /*
@@ -40,15 +40,16 @@ func main() {
 func compile(sourcePath string, destPath string) {
 	cmd := exec.Command("mpicc", "-g", "-no-pie", "-I", WRAPPED_MPI_PATH, "-o", destPath, sourcePath)
 
+	fmt.Println("compiling target with:")
 	fmt.Println(cmd)
 
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	err := cmd.Run()
 
 	if err != nil {
-		panic(err)
+		fmt.Println("compilation failed: ", err)
+		os.Exit(1)
 	}
 
 	fmt.Println("compilation finished")

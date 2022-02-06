@@ -15,7 +15,8 @@ import (
 )
 
 type dwarfData struct {
-	modules []*dwarfModule
+	modules      []*dwarfModule
+	mpiFunctions []*dwarfFunc // the debug info of wrapped mpi functions
 }
 type dwarfModule struct {
 	name         string           // name of the module
@@ -204,7 +205,6 @@ func getDwarfData(targetFile string) *dwarfData {
 		// entering a new module
 		if entry.Tag == dwarf.TagCompileUnit {
 			currentModule = parseModule(entry, dwarfRawData)
-			fmt.Printf("new compileUnit:\n%v\n", currentModule)
 
 			data.modules = append(data.modules, currentModule)
 
@@ -214,7 +214,7 @@ func getDwarfData(targetFile string) *dwarfData {
 		// function declaration
 		if entry.Tag == dwarf.TagSubprogram {
 			currentFunction = parseFunction(entry, dwarfRawData)
-			fmt.Printf("new function:\n%v\n", currentFunction)
+			fmt.Printf("new function: %v, file: %v (module: %v)\n", currentFunction.name, currentFunction.file, currentModule.name)
 
 			currentModule.functions = append(currentModule.functions, currentFunction)
 		}
@@ -236,6 +236,8 @@ func getDwarfData(targetFile string) *dwarfData {
 			currentModule.variables = append(currentModule.variables, variable)
 		}
 	}
+
+	data.mpiFunctions = resolveMPIFunctions(data)
 
 	return data
 }
@@ -344,4 +346,19 @@ func parseModule(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfModule {
 	module.entries = dEntries
 
 	return &module
+}
+
+func resolveMPIFunctions(data *dwarfData) []*dwarfFunc {
+
+	mpiWrapFunctions := make([]*dwarfFunc, 0)
+
+	module, sigFunc := data.lookupFunc(MPI_WRAP_SIGNATURE_FUNC)
+
+	for _, function := range module.functions {
+		if function.file == sigFunc.file {
+			mpiWrapFunctions = append(mpiWrapFunctions, function)
+		}
+	}
+
+	return mpiWrapFunctions
 }

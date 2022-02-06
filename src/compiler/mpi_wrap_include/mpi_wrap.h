@@ -27,7 +27,9 @@ int _MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
 }
 
 int _MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source,
-                            int tag, MPI_Comm comm, MPI_Status *status)
+              int tag, MPI_Comm comm, MPI_Status *status)
 {
     return MPI_Recv(buf, count, datatype, source, tag, comm, status);
 }
+
+void _MPI_WRAPPER_INCLUDE() {}

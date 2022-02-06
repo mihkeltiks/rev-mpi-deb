@@ -1,0 +1,3 @@
+package main
+
+const MPI_WRAP_SIGNATURE_FUNC = "_MPI_WRAPPER_INCLUDE"

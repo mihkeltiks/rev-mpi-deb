@@ -50,6 +50,8 @@ func main() {
 	_bpointDataMap := make(bpointDataMap)
 	ctx.bpointData = &_bpointDataMap
 
+	fmt.Println(ctx.dwarfData.mpiFunctions)
+
 	printInstructions()
 
 	for {
