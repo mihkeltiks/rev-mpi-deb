@@ -8,26 +8,34 @@ import (
 	"path/filepath"
 	"syscall"
 
-	Logger "github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 type processContext struct {
-	sourceFile string         // source code file
-	dwarfData  *dwarfData     //
-	process    *exec.Cmd      // the running binary
-	pid        int            // the process id of the running binary
-	bpointData *bpointDataMap // holds the instuctions for currently replaced by breakpoints
-	lang
+	sourceFile string          // source code file
+	dwarfData  *dwarfData      //
+	process    *exec.Cmd       // the running binary
+	pid        int             // the process id of the running binary
+	bpointData *breakpointData // holds the instuctions for currently replaced by breakpoints
+	// lang
 }
 
-type lang string
+// type lang string
 
-const (
-	golang lang = "go"
-	c      lang = "c"
-)
+// const (
+// 	golang lang = "go"
+// 	c      lang = "c"
+// )
 
-type bpointDataMap map[int]*bpointData // keys - line numbers
+type breakpointData struct {
+	userBpoints map[int]*bpointData       // user-inserted breakpoints. keys - line numbers
+	mpiBpoints  map[uint64]*mpiBpointData // auto-inserted breakpoints keys -> addresses
+}
+
+type mpiBpointData struct {
+	data     []byte
+	function *dwarfFunc
+}
 
 type bpointData struct {
 	address uint64 // address of the instruction
@@ -41,16 +49,13 @@ func main() {
 
 	ctx.dwarfData = getDwarfData(targetFile)
 
-	ctx.sourceFile, ctx.lang = getSourceFileInfo(ctx.dwarfData)
+	ctx.sourceFile = getSourceFileInfo(ctx.dwarfData)
+	ctx.bpointData = breakpointData{}.New()
 
 	ctx.process = startBinary(targetFile)
-
 	ctx.pid = ctx.process.Process.Pid
 
-	_bpointDataMap := make(bpointDataMap)
-	ctx.bpointData = &_bpointDataMap
-
-	fmt.Println(ctx.dwarfData.mpiFunctions)
+	insertMPIBreakpoints(ctx)
 
 	printInstructions()
 
@@ -86,59 +91,61 @@ func startBinary(target string) *exec.Cmd {
 
 	if err != nil {
 		// arrived at auto-inserted initial breakpoint trap
-		Logger.Info("binary started, waiting for continuation")
+		logger.Info("binary started, waiting for continuation")
 	}
 
 	return cmd
 }
 
-func getSourceFileInfo(d *dwarfData) (sourceFile string, language lang) {
-	languageEntryFuncs := map[lang]string{
-		golang: "main.main",
-		c:      "main",
-	}
+func getSourceFileInfo(d *dwarfData) (sourceFile string) {
+	// languageEntryFuncs := map[lang]string{
+	// 	golang: "main.main",
+	// 	c:      "main",
+	// }
 
-	module, function := d.lookupFunc(languageEntryFuncs[golang])
-	if module != nil {
-		language = golang
-	} else {
-		module, function = d.lookupFunc(languageEntryFuncs[c])
-		language = c
-	}
+	entryFunc := "main"
+
+	module, function := d.lookupFunc(entryFunc)
+	// if module != nil {
+	// 	language = golang
+	// } else {
+	// 	module, function = d.lookupFunc(languageEntryFuncs[c])
+	// 	language = c
+	// }
 
 	sourceFile = module.files[function.file]
 
-	return sourceFile, language
+	return sourceFile
 }
 
 func logRegistersState(ctx *processContext) {
-	registers, line, fileName, _, _ := getCurrentLine(ctx, false)
+	regs := getRegs(ctx, false)
 
-	Logger.Info("instruction pointer: %x (line %d in %s)\n", registers.Rip, line, fileName)
+	line, fileName, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
+
+	logger.Info("instruction pointer: %x (line %d in %s)\n", regs.Rip, line, fileName)
 
 	data := make([]byte, 4)
-	syscall.PtracePeekData(ctx.pid, uintptr(registers.Rip), data)
-	Logger.Info("ip pointing to: %v\n", data)
+	syscall.PtracePeekData(ctx.pid, uintptr(regs.Rip), data)
+	logger.Info("ip pointing to: %v\n", data)
 }
 
-func getCurrentLine(ctx *processContext, rewindIP bool) (registers *syscall.PtraceRegs, line int, fileName string, fnName string, err error) {
+func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
 	var regs syscall.PtraceRegs
 
-	err = syscall.PtraceGetRegs(ctx.pid, &regs)
+	err := syscall.PtraceGetRegs(ctx.pid, &regs)
 
 	if err != nil {
 		fmt.Printf("getregs error: %v\n", err)
 	}
 
 	// if currently stopped by a breakpoint, rewind the instruction pointer by 1
-	// to find the correct instruction
+	// to find the correct instruction (rewind the interrupt instruction)
 	if rewindIP {
 		regs.Rip -= 1
 	}
 
-	line, fileName, fnName, err = ctx.dwarfData.PCToLine(regs.Rip)
-
-	return &regs, line, fileName, fnName, err
+	return &regs
 }
 
 // parse and validate command line arguments
@@ -150,13 +157,13 @@ func getValuesFromArgs() string {
 
 	switch os.Args[1] {
 	case "mpi":
-		Logger.Info("mpi specified, loading example mpi binary")
+		logger.Info("mpi specified, loading example mpi binary")
 		return "examples/hello_mpi_c/hello"
 	case "c":
-		Logger.Info("c specified, loading example c binary")
+		logger.Info("c specified, loading example c binary")
 		return "examples/hello_c/hello"
 	case "go":
-		Logger.Info("go specified, loading example c binary")
+		logger.Info("go specified, loading example c binary")
 		return "examples/hello_go/hello"
 	}
 
@@ -171,4 +178,12 @@ func getValuesFromArgs() string {
 	}
 
 	return targetFilePath
+}
+
+func (b breakpointData) New() *breakpointData {
+
+	return &breakpointData{
+		userBpoints: make(map[int]*bpointData),
+		mpiBpoints:  make(map[uint64]*mpiBpointData),
+	}
 }

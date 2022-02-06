@@ -11,12 +11,12 @@ import (
 	"reflect"
 
 	"github.com/go-delve/delve/pkg/dwarf/op"
-	Logger "github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 type dwarfData struct {
-	modules      []*dwarfModule
-	mpiFunctions []*dwarfFunc // the debug info of wrapped mpi functions
+	modules []*dwarfModule
+	mpi     dwarfMPIData
 }
 type dwarfModule struct {
 	name         string           // name of the module
@@ -82,6 +82,11 @@ type dwarfVariable struct {
 	function             *dwarfFunc     // the function where variable is declared (might be nil)
 }
 
+type dwarfMPIData struct {
+	functions []*dwarfFunc // the debug info of wrapped mpi functions
+	file      string       // file for mpi function wrappers
+}
+
 func (v *dwarfVariable) locationString() string {
 	buf := new(bytes.Buffer)
 	op.PrettyPrint(buf, v.locationInstructions)
@@ -135,8 +140,8 @@ func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) 
 				for _, entry := range module.entries {
 
 					if entry.line == line && entry.isStmt {
-						Logger.Info("found suitable breakpoint: %v", entry)
-						Logger.Info("file sanity check: %v\n", module.files[entry.file] == file)
+						logger.Info("found suitable breakpoint: %v", entry)
+						logger.Info("file sanity check: %v\n", module.files[entry.file] == file)
 
 						return entry.address, nil
 					} else if entry.line == line {
@@ -214,7 +219,7 @@ func getDwarfData(targetFile string) *dwarfData {
 		// function declaration
 		if entry.Tag == dwarf.TagSubprogram {
 			currentFunction = parseFunction(entry, dwarfRawData)
-			fmt.Printf("new function: %v, file: %v (module: %v)\n", currentFunction.name, currentFunction.file, currentModule.name)
+			// fmt.Printf("new function: %v, file: %v (module: %v)\n", currentFunction.name, currentFunction.file, currentModule.name)
 
 			currentModule.functions = append(currentModule.functions, currentFunction)
 		}
@@ -237,7 +242,7 @@ func getDwarfData(targetFile string) *dwarfData {
 		}
 	}
 
-	data.mpiFunctions = resolveMPIFunctions(data)
+	data.mpi = resolveMPIDebugInfo(data)
 
 	return data
 }
@@ -348,7 +353,7 @@ func parseModule(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfModule {
 	return &module
 }
 
-func resolveMPIFunctions(data *dwarfData) []*dwarfFunc {
+func resolveMPIDebugInfo(data *dwarfData) dwarfMPIData {
 
 	mpiWrapFunctions := make([]*dwarfFunc, 0)
 
@@ -360,5 +365,8 @@ func resolveMPIFunctions(data *dwarfData) []*dwarfFunc {
 		}
 	}
 
-	return mpiWrapFunctions
+	return dwarfMPIData{
+		mpiWrapFunctions,
+		module.files[sigFunc.file],
+	}
 }

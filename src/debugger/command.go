@@ -34,7 +34,7 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 
 	switch cmd.code {
 	case bpoint:
-		err = setBreakPoint(ctx, cmd.lineNr)
+		err = setBreakPoint(ctx, ctx.sourceFile, cmd.lineNr)
 	case step:
 		singleStep(ctx)
 	case cont:
