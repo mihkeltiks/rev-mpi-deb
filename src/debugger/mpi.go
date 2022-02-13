@@ -14,18 +14,11 @@ func insertMPIBreakpoints(ctx *processContext) {
 		logger.Info("Inserting mpi breakpoint: func: %v, address: %x", function.name, address)
 		originalInstruction := insertBreakpoint(ctx, address)
 
-		ctx.bpointData.mpiBpoints[address] = &mpiBpointData{
-			data:     originalInstruction,
-			function: function,
+		ctx.bpointData[address] = &bpointData{
+			address,
+			originalInstruction,
+			function,
+			true,
 		}
 	}
-}
-
-func isMPIBreakpoint(ctx *processContext, address uint64) (isMPIBreakpoint bool, data *mpiBpointData) {
-	for bPointAddress, bPointData := range ctx.bpointData.mpiBpoints {
-		if bPointAddress == address {
-			return true, bPointData
-		}
-	}
-	return false, nil
 }

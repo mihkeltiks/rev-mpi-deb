@@ -11,7 +11,7 @@ import (
 
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 
-	breakpointAddress, err := ctx.dwarfData.lineToPC(file, line)
+	address, err := ctx.dwarfData.lineToPC(file, line)
 
 	if err != nil {
 		logger.Info("cannot set breakpoint at line: %v", err)
@@ -19,68 +19,16 @@ func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 	}
 
 	logger.Info("setting breakpoint at file: %v, line: %d", file, line)
-	originalInstruction := insertBreakpoint(ctx, breakpointAddress)
+	originalInstruction := insertBreakpoint(ctx, address)
 
-	ctx.bpointData.userBpoints[line] = &bpointData{
-		breakpointAddress,
+	ctx.bpointData[address] = &bpointData{
+		address,
 		originalInstruction,
+		nil,
+		false,
 	}
 
 	return
-}
-
-func insertBreakpoint(ctx *processContext, breakpointAddress uint64) (originalInstruction []byte) {
-	var interruptCode = []byte{0xCC} // code for breakpoint trap
-
-	// store the replaced instruction in the process context
-	// to swap it in later after breakpoint is hit
-	originalInstruction = make([]byte, len(interruptCode))
-	syscall.PtracePeekData(ctx.pid, uintptr(breakpointAddress), originalInstruction)
-
-	// set breakpoint (insert interrupt code at the address)
-	syscall.PtracePokeData(ctx.pid, uintptr(breakpointAddress), interruptCode)
-
-	return originalInstruction
-}
-
-// restores the original instruction if the executable
-// is currently caught at a breakpoint
-func restoreCaughtBreakpoint(ctx *processContext) {
-	regs := getRegs(ctx, true)
-
-	if isMPIBpoint, bpointData := isMPIBreakpoint(ctx, regs.Rip); isMPIBpoint {
-
-		logger.Info("hit MPI breakpoint, func: %v, data: %v", bpointData.function.name, bpointData.data)
-
-		// replace breakpoint with original instruction
-		syscall.PtracePokeData(ctx.pid, uintptr(regs.Rip), bpointData.data)
-
-		// set the rewinded RIP
-		syscall.PtraceSetRegs(ctx.pid, regs)
-
-		continueExecution(ctx)
-		restoreCaughtBreakpoint(ctx)
-	} else {
-		// check for user-inserted breakpoint
-
-		line, file, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
-
-		bpointData := ctx.bpointData.userBpoints[line]
-
-		if bpointData == nil {
-			logger.Info("Not currently caught at breakpoint: line: %d, file: %v", line, file)
-			return
-		}
-
-		logger.Info("Caught at a breakpoint: line: %d, file: %v", line, file)
-
-		// replace breakpoint with original instruction
-		syscall.PtracePokeData(ctx.pid, uintptr(regs.Rip), bpointData.data)
-
-		// set the rewinded RIP
-		syscall.PtraceSetRegs(ctx.pid, regs)
-	}
-
 }
 
 func continueExecution(ctx *processContext) (exited bool) {
