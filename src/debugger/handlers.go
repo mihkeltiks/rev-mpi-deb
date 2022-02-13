@@ -59,6 +59,7 @@ func restoreCaughtBreakpoint(ctx *processContext) {
 		syscall.PtraceSetRegs(ctx.pid, regs)
 
 		continueExecution(ctx)
+		restoreCaughtBreakpoint(ctx)
 	} else {
 		// check for user-inserted breakpoint
 

@@ -1,6 +1,8 @@
 package main
 
-import "github.com/ottmartens/cc-rev-db/logger"
+import (
+	"github.com/ottmartens/cc-rev-db/logger"
+)
 
 const MPI_WRAP_SIGNATURE_FUNC = "_MPI_WRAPPER_INCLUDE"
 
