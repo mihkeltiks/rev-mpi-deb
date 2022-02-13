@@ -49,15 +49,11 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 
 	if cmd.isProgressCommand() {
 		for {
-			exited = continueExecution(ctx)
-
-			if exited {
-				break
-			}
-
 			isMPIBpoint := restoreCaughtBreakpoint(ctx)
 
-			if !isMPIBpoint {
+			exited = continueExecution(ctx)
+
+			if exited || !isMPIBpoint {
 				break
 			}
 		}
