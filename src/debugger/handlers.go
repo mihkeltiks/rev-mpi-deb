@@ -69,7 +69,7 @@ func printVariable(ctx *processContext, varName string) {
 		return
 	}
 
-	address, _, err := variable.locationDecoded()
+	address, _, err := variable.locationInstructions.decode()
 
 	if err != nil {
 		panic(fmt.Sprintf("Error decoding variable: %v", err))

@@ -22,3 +22,19 @@ func insertMPIBreakpoints(ctx *processContext) {
 		}
 	}
 }
+
+func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
+	// regs := getRegs(ctx, true)
+
+	module, function := ctx.dwarfData.lookupFunc(bpoint.function.name)
+
+	logger.Info("recording: %v from module %v", function.name, module.name)
+
+	for _, param := range function.parameters {
+		address, _, err := param.locationInstructions.decode()
+
+		must(err)
+
+		logger.Info("param %v of type %d at %#x", param.name, param.baseType.name, address)
+	}
+}

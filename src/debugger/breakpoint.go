@@ -44,14 +44,14 @@ func insertBreakpoint(ctx *processContext, breakpointAddress uint64) (originalIn
 }
 
 // restores the original instruction if the executable is currently caught at a breakpoint
-func restoreCaughtBreakpoint(ctx *processContext) (caughtMPIBpoint bool) {
+func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData) {
 	regs := getRegs(ctx, true)
 
 	bpoint := findBreakpointByAddress(ctx, regs.Rip)
 
 	if bpoint == nil {
 		logger.Info("Cannot find a breakpoint to restore")
-		return false
+		return nil
 	}
 
 	if bpoint.isMPIBpoint {
@@ -67,5 +67,5 @@ func restoreCaughtBreakpoint(ctx *processContext) (caughtMPIBpoint bool) {
 	// set the rewinded instruction pointer
 	syscall.PtraceSetRegs(ctx.pid, regs)
 
-	return bpoint.isMPIBpoint
+	return bpoint
 }

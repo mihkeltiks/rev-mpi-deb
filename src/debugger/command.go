@@ -49,11 +49,19 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 
 	if cmd.isProgressCommand() {
 		for {
-			isMPIBpoint := restoreCaughtBreakpoint(ctx)
+			bpoint := restoreCaughtBreakpoint(ctx)
+
+			if bpoint == nil {
+				break
+			}
+
+			if bpoint.isMPIBpoint {
+				recordMPIOperation(ctx, bpoint)
+			}
 
 			exited = continueExecution(ctx)
 
-			if exited || !isMPIBpoint {
+			if exited || !bpoint.isMPIBpoint {
 				break
 			}
 		}

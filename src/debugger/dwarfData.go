@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"unsafe"
 
 	"github.com/go-delve/delve/pkg/dwarf/op"
 	"github.com/ottmartens/cc-rev-db/logger"
@@ -61,12 +62,19 @@ func (e dwarfEntry) String() string {
 }
 
 type dwarfFunc struct {
-	name   string // function name
-	file   int    // file the function is declared at
-	line   int64  // line nr
-	col    int64  // col nr
-	lowPC  uint64 // first PC address for the function
-	highPC uint64 // last PC address for the function
+	name       string            // function name
+	file       int               // file the function is declared at
+	line       int64             // line nr
+	col        int64             // col nr
+	lowPC      uint64            // first PC address for the function
+	highPC     uint64            // last PC address for the function
+	parameters []*dwarfParameter // function parameters
+}
+
+type dwarfParameter struct {
+	name                 string
+	baseType             *dwarfBaseType            // type of the variable
+	locationInstructions dwarfLocationInstructions //
 }
 
 type dwarfBaseType struct {
@@ -76,16 +84,18 @@ type dwarfBaseType struct {
 }
 
 type dwarfVariable struct {
-	name                 string         // variable name
-	baseType             *dwarfBaseType // type of the variable
-	locationInstructions []byte         // raw dwarf location instructions
-	function             *dwarfFunc     // the function where variable is declared (might be nil)
+	name                 string                    // variable name
+	baseType             *dwarfBaseType            // type of the variable
+	locationInstructions dwarfLocationInstructions // raw dwarf location instructions
+	function             *dwarfFunc                // the function where variable is declared (might be nil)
 }
 
 type dwarfMPIData struct {
 	functions []*dwarfFunc // the debug info of wrapped mpi functions
 	file      string       // file for mpi function wrappers
 }
+
+type dwarfLocationInstructions []byte
 
 func (v *dwarfVariable) locationString() string {
 	buf := new(bytes.Buffer)
@@ -97,8 +107,9 @@ func (v *dwarfVariable) String() string {
 	return fmt.Sprintf("{name:%v, type: %v, location: %v}", v.name, v.baseType.name, v.locationString())
 }
 
-func (v *dwarfVariable) locationDecoded() (address uint64, pieces []op.Piece, err error) {
-	addr, pieces, err := op.ExecuteStackProgram(op.DwarfRegisters{}, v.locationInstructions, 8, nil)
+func (li dwarfLocationInstructions) decode() (address uint64, pieces []op.Piece, err error) {
+	ptrSize := int(unsafe.Sizeof(uintptr(0)))
+	addr, pieces, err := op.ExecuteStackProgram(op.DwarfRegisters{}, li, ptrSize, nil)
 	return uint64(addr), pieces, err
 }
 
@@ -224,11 +235,25 @@ func getDwarfData(targetFile string) *dwarfData {
 			currentModule.functions = append(currentModule.functions, currentFunction)
 		}
 
+		if entry.Tag == dwarf.TagFormalParameter {
+			parameter := parseFunctionParameter(entry, baseTypeMap)
+
+			currentFunction.parameters = append(currentFunction.parameters, parameter)
+		}
+
 		// variable declaration
 		if entry.Tag == dwarf.TagVariable {
+			baseType := baseTypeMap[uint32(entry.Val(dwarf.AttrType).(dwarf.Offset))]
+
+			if baseType == nil {
+				baseType = &dwarfBaseType{
+					name: "unknown type",
+				}
+			}
+
 			variable := &dwarfVariable{
 				name:     entry.Val(dwarf.AttrName).(string),
-				baseType: baseTypeMap[uint32(entry.Val(dwarf.AttrType).(dwarf.Offset))],
+				baseType: baseType,
 				function: currentFunction,
 			}
 
@@ -245,6 +270,24 @@ func getDwarfData(targetFile string) *dwarfData {
 	data.mpi = resolveMPIDebugInfo(data)
 
 	return data
+}
+
+func parseFunctionParameter(entry *dwarf.Entry, baseTypeMap map[uint32]*dwarfBaseType) *dwarfParameter {
+	baseType := baseTypeMap[uint32(entry.Val(dwarf.AttrType).(dwarf.Offset))]
+
+	if baseType == nil {
+		baseType = &dwarfBaseType{
+			name: "unknown type",
+		}
+	}
+
+	parameter := &dwarfParameter{
+		name:                 entry.Val(dwarf.AttrName).(string),
+		baseType:             baseType,
+		locationInstructions: entry.Val(dwarf.AttrLocation).([]byte),
+	}
+
+	return parameter
 }
 
 func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfFunc {
@@ -267,6 +310,7 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfFunc {
 
 			// fmt.Printf("%v, %v, %v\n", memory, pieces, err)
 		}
+
 	}
 
 	ranges, err := dwarfRawData.Ranges(entry)
@@ -275,6 +319,7 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfFunc {
 	}
 	function.lowPC = ranges[0][0]
 	function.highPC = ranges[0][1]
+	function.parameters = make([]*dwarfParameter, 0)
 
 	return &function
 }
