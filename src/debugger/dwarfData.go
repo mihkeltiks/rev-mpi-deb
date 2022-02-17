@@ -60,15 +60,15 @@ func (m dwarfModule) String() string {
 		functionString = fmt.Sprintf("%s\n%s", functionString, fn)
 	}
 
-	return fmt.Sprintf("{\nname:%s\nstart:%x\nend:%x\nfiles: %v\nfunctions: %v\n}", m.name, m.startAddress, m.endAddress, m.files, functionString)
+	return fmt.Sprintf("{\nname:%s\nstart:%#x\nend:%#x\nfiles: %v\nfunctions: %v\n}", m.name, m.startAddress, m.endAddress, m.files, functionString)
 }
 
 func (fn dwarfFunc) String() string {
-	return fmt.Sprintf("{name:%s start:%x end:%x params:%v }", fn.name, fn.lowPC, fn.highPC, fn.parameters)
+	return fmt.Sprintf("{name:%s start:%#x end:%#x params:%v }", fn.name, fn.lowPC, fn.highPC, fn.parameters)
 }
 
 func (e dwarfEntry) String() string {
-	return fmt.Sprintf("entry{address: %x, file:%d, line: %d, col: %d, isStmt: %v}", e.address, e.file, e.line, e.col, e.isStmt)
+	return fmt.Sprintf("entry{address: %#x, file:%d, line: %d, col: %d, isStmt: %v}", e.address, e.file, e.line, e.col, e.isStmt)
 }
 
 func (p dwarfParameter) String() string {
@@ -78,7 +78,7 @@ func (p dwarfParameter) String() string {
 func (dMap dwarfTypeMap) String() string {
 	typesString := ""
 	for offset, dType := range dMap {
-		typesString = fmt.Sprintf("%soffset %x - %v\n", typesString, offset, dType)
+		typesString = fmt.Sprintf("%soffset %#x - %v\n", typesString, offset, dType)
 	}
 	return fmt.Sprintf("typeMap:{\n%s}", typesString)
 }
@@ -444,6 +444,7 @@ func resolveMPIDebugInfo(data *dwarfData) dwarfMPIData {
 
 	for _, function := range module.functions {
 		if function.file == sigFunc.file {
+			function.name = function.name[1:]
 			mpiWrapFunctions = append(mpiWrapFunctions, function)
 		}
 	}

@@ -42,8 +42,8 @@ func getStack(ctx *processContext) functionStack {
 		frameSize := basePointer - stackPointer + ptrSize
 
 		// logger.Info("func: %s", fn.name)
-		// logger.Info("stack pointer: %x", stackPointer)
-		// logger.Info("base pointer: %x", basePointer)
+		// logger.Info("stack pointer: %#x", stackPointer)
+		// logger.Info("base pointer: %#x", basePointer)
 		// logger.Info("frame size: %d", frameSize)
 
 		if frameSize > 1024 || basePointer < 1 {

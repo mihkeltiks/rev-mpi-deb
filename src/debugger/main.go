@@ -85,7 +85,7 @@ func logRegistersState(ctx *processContext) {
 
 	line, fileName, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
 
-	logger.Info("instruction pointer: %x (line %d in %s)\n", regs.Rip, line, fileName)
+	logger.Info("instruction pointer: %#x (line %d in %s)\n", regs.Rip, line, fileName)
 
 	data := make([]byte, 4)
 	syscall.PtracePeekData(ctx.pid, uintptr(regs.Rip), data)

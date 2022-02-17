@@ -34,6 +34,6 @@ func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
 
 		must(err)
 
-		logger.Info("param %v of type %d at %#x", param.name, param.baseType.name, address)
+		logger.Info("param %s (type: %d location: %#x)", param.name, param.baseType.name, address)
 	}
 }
