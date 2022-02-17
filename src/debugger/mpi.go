@@ -11,7 +11,6 @@ func insertMPIBreakpoints(ctx *processContext) {
 	for _, function := range ctx.dwarfData.mpi.functions {
 		address := function.lowPC
 
-		logger.Info("Inserting mpi breakpoint: func: %v, address: %x", function.name, address)
 		originalInstruction := insertBreakpoint(ctx, address)
 
 		ctx.bpointData[address] = &bpointData{
