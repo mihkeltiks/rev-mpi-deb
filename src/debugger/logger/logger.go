@@ -22,5 +22,5 @@ func Info(str string, args ...interface{}) {
 func timeString() string {
 	hour, min, sec := time.Now().Clock()
 
-	return fmt.Sprintf("%02d:%02d:%02d ", hour, min, sec)
+	return fmt.Sprintf("%02d:%02d:%02d  ", hour, min, sec)
 }

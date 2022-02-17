@@ -15,7 +15,7 @@ import (
 
 type processContext struct {
 	sourceFile string                 // source code file
-	dwarfData  *dwarfData             //
+	dwarfData  *dwarfData             // dwarf debug information about the binary
 	process    *exec.Cmd              // the running binary
 	pid        int                    // the process id of the running binary
 	bpointData map[uint64]*bpointData // holds the instuctions for currently replaced by breakpoints
@@ -65,7 +65,7 @@ func startBinary(target string) *exec.Cmd {
 
 	if err != nil {
 		// arrived at auto-inserted initial breakpoint trap
-		logger.Info("binary started, waiting for continuation")
+		logger.Info("binary started, waiting for command")
 	}
 
 	return cmd
@@ -73,9 +73,7 @@ func startBinary(target string) *exec.Cmd {
 
 func getSourceFileInfo(d *dwarfData) (sourceFile string) {
 
-	entryFunc := "main"
-
-	module, function := d.lookupFunc(entryFunc)
+	module, function := d.lookupFunc(MAIN_FN)
 
 	sourceFile = module.files[function.file]
 

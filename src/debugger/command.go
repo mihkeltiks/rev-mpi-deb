@@ -4,12 +4,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 type command struct {
-	code    commandCode
-	lineNr  int
-	varName string
+	code     commandCode
+	argument interface{}
 }
 
 type commandCode int
@@ -21,6 +22,7 @@ const (
 	print
 	quit
 	help
+	printInternal
 )
 
 type cmdResult struct {
@@ -34,17 +36,19 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 
 	switch cmd.code {
 	case bpoint:
-		err = setBreakPoint(ctx, ctx.sourceFile, cmd.lineNr)
+		err = setBreakPoint(ctx, ctx.sourceFile, cmd.argument.(int))
 	case step:
 		singleStep(ctx)
 	case cont:
 		exited = continueExecution(ctx)
 	case print:
-		printVariable(ctx, cmd.varName)
+		printVariable(ctx, cmd.argument.(string))
 	case quit:
 		quitDebugger()
 	case help:
 		printInstructions()
+	case printInternal:
+		printInternalData(ctx, cmd.argument.(string))
 	}
 
 	if cmd.isProgressCommand() {
@@ -55,8 +59,12 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 				break
 			}
 
+			logger.Info("stack: %v", getStack(ctx))
+
 			if bpoint.isMPIBpoint {
 				recordMPIOperation(ctx, bpoint)
+
+				//re-insert MPI bpoint?
 			}
 
 			exited = continueExecution(ctx)
@@ -78,29 +86,35 @@ func parseCommandFromString(input string) (c *command) {
 
 	breakPointRegexp := regexp.MustCompile(`^b \d+$`)
 	printRegexp := regexp.MustCompile(`^p [a-zA-Z_][a-zA-Z0-9_]*$`)
+	printInternalRegexp := regexp.MustCompile(`^pd [a-zA-Z_][a-zA-Z0-9_]*$`)
 
 	switch {
 	case breakPointRegexp.Match([]byte(input)):
 		lineNr, _ := strconv.Atoi(strings.Split(input, " ")[1])
 
-		return &command{code: bpoint, lineNr: lineNr}
+		return &command{bpoint, lineNr}
 
 	case input == "c":
-		return &command{code: cont}
+		return &command{cont, nil}
 
 	case input == "s":
-		return &command{code: step}
+		return &command{step, nil}
 
 	case printRegexp.Match([]byte(input)):
 		varName := strings.Split(input, " ")[1]
 
-		return &command{code: print, varName: varName}
+		return &command{print, varName}
 
 	case input == "q":
-		return &command{code: quit}
+		return &command{quit, nil}
 
 	case input == "help":
-		return &command{code: help}
+		return &command{help, nil}
+
+	case printInternalRegexp.Match([]byte(input)):
+		varName := strings.Split(input, " ")[1]
+
+		return &command{printInternal, varName}
 
 	default:
 		return nil

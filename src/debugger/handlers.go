@@ -101,6 +101,16 @@ func printVariable(ctx *processContext, varName string) {
 	fmt.Printf("Value of variable %s: %v\n", varName, value)
 }
 
+func printInternalData(ctx *processContext, varName string) {
+	switch varName {
+	case "types":
+		logger.Info("dwarf types:\n%v", ctx.dwarfData.types)
+	case "modules":
+		logger.Info("dwarf modules:\n%v", ctx.dwarfData.modules)
+
+	}
+}
+
 func quitDebugger() {
 	fmt.Println("👋 Exiting..")
 	os.Exit(0)
