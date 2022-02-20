@@ -67,5 +67,8 @@ func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData) {
 	// set the rewinded instruction pointer
 	syscall.PtraceSetRegs(ctx.pid, regs)
 
+	// remove record of breakpoint
+	delete(ctx.bpointData, bpoint.address)
+
 	return bpoint
 }

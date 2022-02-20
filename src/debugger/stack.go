@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"syscall"
+
+	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 type functionStack []*dwarfFunc
@@ -41,7 +43,7 @@ func getStack(ctx *processContext) functionStack {
 
 		frameSize := basePointer - stackPointer + ptrSize
 
-		// logger.Info("func: %s", fn.name)
+		logger.Info("func: %s", fn.name)
 		// logger.Info("stack pointer: %#x", stackPointer)
 		// logger.Info("base pointer: %#x", basePointer)
 		// logger.Info("frame size: %d", frameSize)
@@ -61,7 +63,8 @@ func getStack(ctx *processContext) functionStack {
 		if fn != nil {
 			fnStack = append(fnStack, fn)
 		} else {
-			panic("no matching function found for stack frame return address")
+			logger.Info("no matching function found for stack frame return address")
+			break
 		}
 
 		for offset = ptrSize; stackPointer+offset <= basePointer; offset += ptrSize {

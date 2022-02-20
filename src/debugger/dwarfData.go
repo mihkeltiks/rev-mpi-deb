@@ -84,7 +84,7 @@ func (dMap dwarfTypeMap) String() string {
 }
 
 func (v *dwarfVariable) String() string {
-	return fmt.Sprintf("{name:%v, type: %v, location: %v}", v.name, v.baseType.name, v.locationString())
+	return fmt.Sprintf("{name:%v, type: %v, location: %v}", v.name, v.baseType.name, v.locationInstructions)
 }
 
 type dwarfFunc struct {
@@ -123,14 +123,14 @@ type dwarfMPIData struct {
 
 type dwarfLocationInstructions []byte
 
-func (v *dwarfVariable) locationString() string {
+func (li dwarfLocationInstructions) String() string {
 	buf := new(bytes.Buffer)
-	op.PrettyPrint(buf, v.locationInstructions)
+	op.PrettyPrint(buf, []byte(li))
 	return buf.String()
 }
 
-func (li dwarfLocationInstructions) decode() (address uint64, pieces []op.Piece, err error) {
-	addr, pieces, err := op.ExecuteStackProgram(op.DwarfRegisters{}, li, ptrSize(), nil)
+func (li dwarfLocationInstructions) decode(dRegisters op.DwarfRegisters) (address uint64, pieces []op.Piece, err error) {
+	addr, pieces, err := op.ExecuteStackProgram(dRegisters, li, ptrSize(), nil)
 	return uint64(addr), pieces, err
 }
 
@@ -162,6 +162,19 @@ func (d *dwarfData) lookupVariable(varName string) *dwarfVariable {
 	}
 
 	return nil
+}
+
+func (d *dwarfData) getEntriesForFunction(functionName string) []dwarfEntry {
+	entries := make([]dwarfEntry, 0)
+	module, function := d.lookupFunc(functionName)
+
+	for _, entry := range module.entries {
+		if entry.address >= function.lowPC && entry.address < function.highPC {
+			entries = append(entries, entry)
+		}
+	}
+
+	return entries
 }
 
 func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) {
@@ -204,8 +217,10 @@ func (d *dwarfData) PCToLine(pc uint64) (line int, file string, functionName str
 }
 
 func (d *dwarfData) PCToFunc(pc uint64) *dwarfFunc {
+	logger.Info("pc to func %#x", pc)
 	for _, module := range d.modules {
 		for _, function := range module.functions {
+			logger.Info("func %v", function)
 			if pc >= function.lowPC && pc < function.highPC {
 				return function
 			}
@@ -342,7 +357,12 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfFunc {
 		case dwarf.AttrDeclColumn:
 			function.col = field.Val.(int64)
 		case dwarf.AttrFrameBase:
-			// fmt.Printf("frame base : %v, %v, %T\n", field.Attr.GoString(), field.Val, field.Val)
+
+			// fmt.Printf("frame base : %v, %v, %T, %x\n", field.Attr, field.Val, field.Val, field.Val)
+
+			// buf := new(bytes.Buffer)
+			// op.PrettyPrint(buf, field.Val.([]byte))
+			// fmt.Println(buf.String())
 
 			// memory, pieces, err := op.ExecuteStackProgram(op.DwarfRegisters{}, field.Val.([]byte), 8, nil)
 
@@ -440,10 +460,10 @@ func resolveMPIDebugInfo(data *dwarfData) dwarfMPIData {
 
 	mpiWrapFunctions := make([]*dwarfFunc, 0)
 
-	module, sigFunc := data.lookupFunc(MPI_WRAP_SIGNATURE_FUNC)
+	module, sigFunc := data.lookupFunc(MPI_FUNCS.SIGNATURE)
 
 	for _, function := range module.functions {
-		if function.file == sigFunc.file {
+		if function.file == sigFunc.file && function != sigFunc {
 			function.name = function.name[1:]
 			mpiWrapFunctions = append(mpiWrapFunctions, function)
 		}

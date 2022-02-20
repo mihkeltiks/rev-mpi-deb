@@ -7,18 +7,20 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"reflect"
 	"syscall"
 
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 type processContext struct {
-	sourceFile string                 // source code file
-	dwarfData  *dwarfData             // dwarf debug information about the binary
-	process    *exec.Cmd              // the running binary
-	pid        int                    // the process id of the running binary
-	bpointData map[uint64]*bpointData // holds the instuctions for currently replaced by breakpoints
+	sourceFile string         // source code file
+	dwarfData  *dwarfData     // dwarf debug information about the binary
+	process    *exec.Cmd      // the running binary
+	pid        int            // the process id of the running binary
+	bpointData breakpointData // holds the instuctions for currently replaced by breakpoints
 }
 
 func main() {
@@ -39,6 +41,7 @@ func main() {
 	printInstructions()
 
 	for {
+		// cmd := &command{cont, nil}
 		cmd := askForInput()
 
 		res := cmd.handle(ctx)
@@ -59,6 +62,15 @@ func startBinary(target string) *exec.Cmd {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Ptrace: true,
 	}
+
+	// handle termination of child on exit
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		cmd.Process.Kill()
+		os.Exit(1)
+	}()
 
 	cmd.Start()
 	err := cmd.Wait()
@@ -87,9 +99,9 @@ func logRegistersState(ctx *processContext) {
 
 	logger.Info("instruction pointer: %#x (line %d in %s)\n", regs.Rip, line, fileName)
 
-	data := make([]byte, 4)
-	syscall.PtracePeekData(ctx.pid, uintptr(regs.Rip), data)
-	logger.Info("ip pointing to: %v\n", data)
+	// data := make([]byte, 4)
+	// syscall.PtracePeekData(ctx.pid, uintptr(regs.Rip), data)
+	// logger.Info("ip pointing to: %v\n", data)
 }
 
 func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
@@ -108,6 +120,18 @@ func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
 	}
 
 	return &regs
+}
+
+func printRegs(ctx *processContext) {
+	regs := getRegs(ctx, false)
+
+	s := reflect.ValueOf(regs).Elem()
+	typeOfT := s.Type()
+
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		fmt.Printf(" %s = %#x\n", typeOfT.Field(i).Name, f.Interface())
+	}
 }
 
 // parse and validate command line arguments

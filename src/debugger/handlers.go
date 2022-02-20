@@ -6,6 +6,7 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/go-delve/delve/pkg/dwarf/op"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
@@ -69,7 +70,9 @@ func printVariable(ctx *processContext, varName string) {
 		return
 	}
 
-	address, _, err := variable.locationInstructions.decode()
+	// regs := getRegs(ctx, false)
+
+	address, _, err := variable.locationInstructions.decode(op.DwarfRegisters{})
 
 	if err != nil {
 		panic(fmt.Sprintf("Error decoding variable: %v", err))
@@ -80,25 +83,38 @@ func printVariable(ctx *processContext, varName string) {
 		return
 	}
 
-	data := make([]byte, variable.baseType.byteSize)
+	logger.Info("Printing variable %v", variable)
+
+	data := peekDataFromMemory(ctx, address, variable.baseType.byteSize)
+
+	value := convertValueToType(data, variable.baseType)
+
+	fmt.Printf("Value of variable %s: %v\n", varName, value)
+
+}
+
+func peekDataFromMemory(ctx *processContext, address uint64, byteCount int64) []byte {
+	data := make([]byte, byteCount)
 
 	syscall.PtracePeekData(ctx.pid, uintptr(address), data)
 
-	logger.Info("Printing variable %v", variable)
+	return data
+}
+
+func convertValueToType(data []byte, dType *dwarfBaseType) interface{} {
 
 	var value interface{}
 
-	switch variable.baseType.byteSize {
+	switch dType.byteSize {
 	case 4:
 		value = int32(binary.LittleEndian.Uint32(data))
 	case 8:
 		value = int64(binary.LittleEndian.Uint64(data))
 	default:
-		fmt.Printf("unknown bytesize? %v\n", variable)
-		return
+		fmt.Printf("unknown bytesize? %v\n", dType)
 	}
 
-	fmt.Printf("Value of variable %s: %v\n", varName, value)
+	return value
 }
 
 func printInternalData(ctx *processContext, varName string) {
@@ -107,6 +123,8 @@ func printInternalData(ctx *processContext, varName string) {
 		logger.Info("dwarf types:\n%v", ctx.dwarfData.types)
 	case "modules":
 		logger.Info("dwarf modules:\n%v", ctx.dwarfData.modules)
+	case "vars":
+		logger.Info("dwarf variables: %v\n", ctx.dwarfData.modules[0].variables)
 
 	}
 }

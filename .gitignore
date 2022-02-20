@@ -7,3 +7,5 @@ bin/temp/*
 !bin/temp/.gitkeep
 
 **/.vscode
+
+src/debugger/decodeLocInstr.go

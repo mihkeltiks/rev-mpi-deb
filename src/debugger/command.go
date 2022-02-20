@@ -59,12 +59,12 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 				break
 			}
 
-			logger.Info("stack: %v", getStack(ctx))
-
 			if bpoint.isMPIBpoint {
 				recordMPIOperation(ctx, bpoint)
 
-				//re-insert MPI bpoint?
+				reinsertMPIBPoints(ctx, bpoint)
+			} else {
+				logger.Info("stack: %v", getStack(ctx))
 			}
 
 			exited = continueExecution(ctx)

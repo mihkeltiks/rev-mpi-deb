@@ -4,36 +4,135 @@ import (
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
-const MPI_WRAP_SIGNATURE_FUNC = "_MPI_WRAPPER_INCLUDE"
+type mpiFuncNames struct {
+	SIGNATURE string
+	SEND      string
+	RECEIVE   string
+	RECORD    string
+}
+
+var MPI_FUNCS mpiFuncNames = mpiFuncNames{
+	SIGNATURE: "_MPI_WRAPPER_INCLUDE",
+	RECORD:    "MPI_WRAPPER_RECORD",
+	SEND:      "MPI_Send",
+	RECEIVE:   "MPI_Receive",
+}
 
 func insertMPIBreakpoints(ctx *processContext) {
-
 	for _, function := range ctx.dwarfData.mpi.functions {
-		address := function.lowPC
-
-		originalInstruction := insertBreakpoint(ctx, address)
-
-		ctx.bpointData[address] = &bpointData{
-			address,
-			originalInstruction,
-			function,
-			true,
-		}
+		insertMPIBreakpoint(ctx, function)
 	}
 }
 
-func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
-	// regs := getRegs(ctx, true)
+func insertMPIBreakpoint(ctx *processContext, function *dwarfFunc) {
+	logger.Info("inserting bpoint for MPI function: %v", function)
 
-	module, function := ctx.dwarfData.lookupFunc(bpoint.function.name)
+	funcEntries := ctx.dwarfData.getEntriesForFunction(function.name)
+	breakEntry := funcEntries[len(funcEntries)-1]
 
-	logger.Info("recording: %v from module %v", function.name, module.name)
+	address := breakEntry.address
 
-	for _, param := range function.parameters {
-		address, _, err := param.locationInstructions.decode()
+	originalInstruction := insertBreakpoint(ctx, address)
 
-		must(err)
-
-		logger.Info("param %s (type: %d location: %#x)", param.name, param.baseType.name, address)
+	ctx.bpointData[address] = &bpointData{
+		address,
+		originalInstruction,
+		function,
+		true,
 	}
+}
+
+func isMPIBpointSet(ctx *processContext, function *dwarfFunc) bool {
+	for _, bpoint := range ctx.bpointData {
+		if bpoint.isMPIBpoint && bpoint.function == function {
+			return true
+		}
+	}
+
+	return false
+}
+
+var currentMPIFunc currentMPIFuncData
+
+type currentMPIFuncData struct {
+	addresses []uint64
+	function  *dwarfFunc
+}
+
+func reinsertMPIBPoints(ctx *processContext, currentBpoint *bpointData) {
+	for _, function := range ctx.dwarfData.mpi.functions {
+		if function.name != currentBpoint.function.name {
+			if !isMPIBpointSet(ctx, function) {
+				insertMPIBreakpoint(ctx, function)
+			}
+		}
+	}
+
+}
+
+func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
+
+	currentMPIFunc = currentMPIFuncData{
+		addresses: make([]uint64, 0),
+		function:  bpoint.function,
+	}
+
+	switch bpoint.function.name {
+	case MPI_FUNCS.SEND:
+
+		// printVariable(ctx, "_MPI_CURRENT_DEST")
+		// printVariable(ctx, "_MPI_CURRENT_TAG")
+	case MPI_FUNCS.RECEIVE:
+
+		// printVariable(ctx, "_MPI_CURRENT_SOURCE")
+		// printVariable(ctx, "_MPI_CURRENT_TAG")
+	case MPI_FUNCS.RECORD:
+		printVariable(ctx, "_MPI_CURRENT_DEST")
+		printVariable(ctx, "_MPI_CURRENT_SOURCE")
+		printVariable(ctx, "_MPI_CURRENT_TAG")
+	}
+
+	// var recordArgIndices []int
+
+	// switch function.name {
+	// case "MPI_Send":
+	// 	recordArgIndices = []int{
+	// 		1,
+	// 		3,
+	// 		4,
+	// 	}
+	// case "MPI_Recv":
+	// 	recordArgIndices = []int{
+	// 		1,
+	// 		3,
+	// 		4,
+	// 	}
+
+	// case "MPI_WRAPPER_RECORD":
+	// 	recordArgIndices = []int{
+	// 		3,
+	// 		4,
+	// 		5,
+	// 	}
+	// default:
+	// 	recordArgIndices = nil
+	// }
+
+	// if recordArgIndices == nil {
+	// 	return
+	// }
+
+	// regs := getRegs(ctx, false)
+
+	// 		frameBase := int64(regs.Rbp - 16)
+	// 		dRegs := DwarfRegisters{FrameBase: frameBase}
+
+	// 		address, _, err := ExecuteStackProgram(dRegs, param.locationInstructions, ptrSize(), nil)
+	// 		logger.Info("param %s (type: '%v' location: %s)", param.name, param.baseType.name, param.locationInstructions)
+	// 		must(err)
+
+	// 		rawValue := peekDataFromMemory(ctx, uint64(address), 4)
+	// 		value := convertValueToType(rawValue, &dwarfBaseType{name: "int", byteSize: 4}).(int32)
+	// 		logger.Info("\t value of %s at %#x - %v - framebase: %#x -> address: %#x", param.name, address, value, frameBase, address)
+
 }
