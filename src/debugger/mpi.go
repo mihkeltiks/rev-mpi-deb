@@ -1,8 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"syscall"
+
 	"github.com/ottmartens/cc-rev-db/logger"
 )
+
+type fn func()
 
 type mpiFuncNames struct {
 	SIGNATURE string
@@ -70,6 +75,16 @@ func reinsertMPIBPoints(ctx *processContext, currentBpoint *bpointData) {
 
 }
 
+func runOnCheckpoint(ctx *processContext, function fn) {
+	realPid := ctx.pid
+
+	ctx.pid = ctx.checkpointPid
+
+	function()
+
+	ctx.pid = realPid
+}
+
 func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
 
 	currentMPIFunc = currentMPIFuncData{
@@ -90,6 +105,32 @@ func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
 		printVariable(ctx, "_MPI_CURRENT_DEST")
 		printVariable(ctx, "_MPI_CURRENT_SOURCE")
 		printVariable(ctx, "_MPI_CURRENT_TAG")
+
+		if ctx.checkpointPid == 0 {
+			logger.Info("regs in parent")
+			printRegs(ctx)
+			ctx.checkpointPid = int(getVariableFromMemory(ctx, "_MPI_CHECKPOINT_CHILD").(int32))
+
+			logger.Info("child proc id is %d", ctx.checkpointPid)
+		} else {
+
+			err := syscall.PtraceAttach(ctx.checkpointPid)
+
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			syscall.Wait4(ctx.checkpointPid, nil, 0, nil)
+
+			logger.Info("from child:")
+			runOnCheckpoint(ctx, func() {
+				printVariable(ctx, "_MPI_CURRENT_DEST")
+				printVariable(ctx, "_MPI_CURRENT_SOURCE")
+				printVariable(ctx, "_MPI_CURRENT_TAG")
+			})
+
+		}
+
 	}
 
 	// var recordArgIndices []int

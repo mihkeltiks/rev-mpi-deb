@@ -1,4 +1,8 @@
 #include <mpi.h>
+#include <signal.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 void _MPI_WRAPPER_INCLUDE() {}
 
@@ -17,7 +21,7 @@ int _MPI_CURRENT_SOURCE;
 int _MPI_CURRENT_DEST;
 int _MPI_CURRENT_TAG;
 
-
+int _MPI_CHECKPOINT_CHILD;
 
 void _MPI_WRAPPER_RECORD(
     const void *buf,
@@ -32,6 +36,14 @@ void _MPI_WRAPPER_RECORD(
     _MPI_CURRENT_DEST = dest;
     _MPI_CURRENT_SOURCE = source;
     _MPI_CURRENT_TAG = tag;
+
+    _MPI_CHECKPOINT_CHILD = fork();
+    if (_MPI_CHECKPOINT_CHILD == 0)
+    {
+        sigset_t set;
+        (void)sigaddset(&set, 9);
+        sigsuspend(&set);
+    }
 }
 
 int _MPI_Init(int *argc, char ***argv)

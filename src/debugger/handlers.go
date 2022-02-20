@@ -63,14 +63,22 @@ func singleStep(ctx *processContext) {
 
 func printVariable(ctx *processContext, varName string) {
 
+	value := getVariableFromMemory(ctx, varName)
+
+	if value == nil {
+		return
+	}
+
+	fmt.Printf("Value of variable %s: %v\n", varName, value)
+}
+
+func getVariableFromMemory(ctx *processContext, varName string) (value interface{}) {
 	variable := ctx.dwarfData.lookupVariable(varName)
 
 	if variable == nil {
 		fmt.Printf("Cannot find variable: %s\n", varName)
-		return
+		return nil
 	}
-
-	// regs := getRegs(ctx, false)
 
 	address, _, err := variable.locationInstructions.decode(op.DwarfRegisters{})
 
@@ -80,17 +88,12 @@ func printVariable(ctx *processContext, varName string) {
 
 	if address == 0 {
 		fmt.Println("Cannot locate this variable")
-		return
+		return nil
 	}
 
-	logger.Info("Printing variable %v", variable)
+	rawValue := peekDataFromMemory(ctx, address, variable.baseType.byteSize)
 
-	data := peekDataFromMemory(ctx, address, variable.baseType.byteSize)
-
-	value := convertValueToType(data, variable.baseType)
-
-	fmt.Printf("Value of variable %s: %v\n", varName, value)
-
+	return convertValueToType(rawValue, variable.baseType)
 }
 
 func peekDataFromMemory(ctx *processContext, address uint64, byteCount int64) []byte {
@@ -125,7 +128,6 @@ func printInternalData(ctx *processContext, varName string) {
 		logger.Info("dwarf modules:\n%v", ctx.dwarfData.modules)
 	case "vars":
 		logger.Info("dwarf variables: %v\n", ctx.dwarfData.modules[0].variables)
-
 	}
 }
 

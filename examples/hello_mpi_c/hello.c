@@ -1,6 +1,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 int size;
 int rank;
@@ -23,6 +24,7 @@ void stuff()
     MPI_Recv(&recvNumber, 1, MPI_INT, rank, 789, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     printf("%d: received value %d from %d\n", rank, recvNumber, rank);
 
+    sleep(5);
     // if (size < 2)
     // {
     //     printf("Too few processes to do message passing. exiting\n");

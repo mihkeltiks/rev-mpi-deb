@@ -16,11 +16,12 @@ import (
 )
 
 type processContext struct {
-	sourceFile string         // source code file
-	dwarfData  *dwarfData     // dwarf debug information about the binary
-	process    *exec.Cmd      // the running binary
-	pid        int            // the process id of the running binary
-	bpointData breakpointData // holds the instuctions for currently replaced by breakpoints
+	sourceFile    string         // source code file
+	dwarfData     *dwarfData     // dwarf debug information about the binary
+	process       *exec.Cmd      // the running binary
+	pid           int            // the process id of the running binary
+	checkpointPid int            // int
+	bpointData    breakpointData // holds the instuctions for currently replaced by breakpoints
 }
 
 func main() {
