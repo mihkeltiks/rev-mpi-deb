@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"path/filepath"
 	"syscall"
 
 	"github.com/ottmartens/cc-rev-db/logger"
@@ -9,10 +11,18 @@ import (
 type breakpointData map[uint64]*bpointData
 
 type bpointData struct {
-	address             uint64     // address of the instruction
-	originalInstruction []byte     // actual contents of the instruction at address
-	function            *dwarfFunc // the pointer to the function the breakpoint was inserted at
-	isMPIBpoint         bool
+	address                 uint64     // address of the instruction
+	originalInstruction     []byte     // actual contents of the instruction at address
+	function                *dwarfFunc // the pointer to the function the breakpoint was inserted at
+	isMPIBpoint             bool
+	isImmediateAfterRestore bool
+}
+
+func (b *bpointData) String() string {
+	if b.function != nil {
+		return fmt.Sprintf("{address: %#x (%v)}", b.address, b.function.name)
+	}
+	return fmt.Sprintf("{address: %#x}", b.address)
 }
 
 func (b breakpointData) New() breakpointData {
@@ -35,6 +45,7 @@ func insertBreakpoint(ctx *processContext, breakpointAddress uint64) (originalIn
 	// store the replaced instruction in the process context
 	// to swap it in later after breakpoint is hit
 	originalInstruction = make([]byte, len(interruptCode))
+
 	syscall.PtracePeekData(ctx.pid, uintptr(breakpointAddress), originalInstruction)
 
 	// set breakpoint (insert interrupt code at the address)
@@ -43,9 +54,23 @@ func insertBreakpoint(ctx *processContext, breakpointAddress uint64) (originalIn
 	return originalInstruction
 }
 
+func getOriginalInstruction(ctx *processContext, address uint64) (originalInstruction []byte) {
+	var interruptCode = []byte{0xCC} // code for breakpoint trap
+
+	originalInstruction = make([]byte, len(interruptCode))
+
+	syscall.PtracePeekData(ctx.pid, uintptr(address), originalInstruction)
+
+	return originalInstruction
+}
+
 // restores the original instruction if the executable is currently caught at a breakpoint
 func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData) {
 	regs := getRegs(ctx, true)
+
+	line, file, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)
+
+	logger.Info("looking to restore bpoint at %#x (line %d in %s, func: %v)", regs.Rip, line, filepath.Base(file), fn.Name())
 
 	bpoint := findBreakpointByAddress(ctx, regs.Rip)
 
@@ -58,8 +83,10 @@ func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData) {
 		logger.Info("Caught auto-inserted MPI breakpoint, func: %v", bpoint.function.name)
 	} else {
 		line, file, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
-		logger.Info("Caught at a breakpoint: line: %d, file: %v", line, file)
+		logger.Info("Caught at a breakpoint: line: %d, file: %v", line, filepath.Base(file))
 	}
+
+	// logger.Info("original data: %v", bpoint.originalInstruction)
 
 	// replace the break instruction with the original instruction
 	syscall.PtracePokeData(ctx.pid, uintptr(regs.Rip), bpoint.originalInstruction)

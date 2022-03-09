@@ -6,17 +6,6 @@
 
 void _MPI_WRAPPER_INCLUDE() {}
 
-// struct _MPI_CURRENT_PARAMS {
-//     const void *buf;
-//     int count;
-//     MPI_Datatype datatype;
-//     int source;
-//     int dest;
-//     int tag;
-//     MPI_Comm comm;
-//     MPI_Status *status;
-// };
-
 int _MPI_CURRENT_SOURCE;
 int _MPI_CURRENT_DEST;
 int _MPI_CURRENT_TAG;
@@ -69,13 +58,15 @@ int _MPI_Finalize()
 int _MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
               int tag, MPI_Comm comm)
 {
+    int code = MPI_Send(buf, count, datatype, dest, tag, comm);
     _MPI_WRAPPER_RECORD(buf, count, datatype, -1, dest, tag, comm, NULL);
-    return MPI_Send(buf, count, datatype, dest, tag, comm);
+    return code;
 }
 
 int _MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source,
               int tag, MPI_Comm comm, MPI_Status *status)
 {
+    int code = MPI_Recv(buf, count, datatype, source, tag, comm, status);
     _MPI_WRAPPER_RECORD(buf, count, datatype, source, -1, tag, comm, status);
-    return MPI_Recv(buf, count, datatype, source, tag, comm, status);
+    return code;
 }

@@ -19,6 +19,7 @@ const (
 	bpoint commandCode = iota
 	step
 	cont
+	restore
 	print
 	quit
 	help
@@ -41,6 +42,10 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 		singleStep(ctx)
 	case cont:
 		exited = continueExecution(ctx)
+	case restore:
+		cpIndex := len(ctx.cpointData) - (1 + cmd.argument.(int))
+
+		restoreCheckpoint(ctx, cpIndex)
 	case print:
 		printVariable(ctx, cmd.argument.(string))
 	case quit:
@@ -64,12 +69,20 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 
 				reinsertMPIBPoints(ctx, bpoint)
 			} else {
-				logger.Info("stack: %v", getStack(ctx))
+				logger.Info("stack: %v", getStack(ctx, bpoint))
+			}
+
+			logger.Info("Here, %v", bpoint)
+
+			if !bpoint.isMPIBpoint {
+				break
 			}
 
 			exited = continueExecution(ctx)
 
-			if exited || !bpoint.isMPIBpoint {
+			logger.Info("after continue exec")
+
+			if exited {
 				break
 			}
 		}
@@ -87,6 +100,8 @@ func parseCommandFromString(input string) (c *command) {
 	breakPointRegexp := regexp.MustCompile(`^b \d+$`)
 	printRegexp := regexp.MustCompile(`^p [a-zA-Z_][a-zA-Z0-9_]*$`)
 	printInternalRegexp := regexp.MustCompile(`^pd [a-zA-Z_][a-zA-Z0-9_]*$`)
+
+	restoreRegexp := regexp.MustCompile(`^r\s*[0-9]*$`)
 
 	switch {
 	case breakPointRegexp.Match([]byte(input)):
@@ -107,6 +122,17 @@ func parseCommandFromString(input string) (c *command) {
 
 	case input == "q":
 		return &command{quit, nil}
+
+	case restoreRegexp.Match([]byte(input)):
+		split := strings.Split(input, " ")
+
+		index := 1
+		if len(split) > 1 {
+			index, _ = strconv.Atoi(split[1])
+
+		}
+
+		return &command{restore, index}
 
 	case input == "help":
 		return &command{help, nil}

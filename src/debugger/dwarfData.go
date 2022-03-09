@@ -67,6 +67,13 @@ func (fn dwarfFunc) String() string {
 	return fmt.Sprintf("{name:%s start:%#x end:%#x params:%v }", fn.name, fn.lowPC, fn.highPC, fn.parameters)
 }
 
+func (fn *dwarfFunc) Name() string {
+	if fn == nil {
+		return "{nil}"
+	}
+	return fn.name
+}
+
 func (e dwarfEntry) String() string {
 	return fmt.Sprintf("entry{address: %#x, file:%d, line: %d, col: %d, isStmt: %v}", e.address, e.file, e.line, e.col, e.isStmt)
 }
@@ -183,14 +190,12 @@ func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) 
 		for _, moduleFile := range module.files {
 			if moduleFile == file {
 				for _, entry := range module.entries {
-
-					if entry.line == line && entry.isStmt {
-						logger.Info("found suitable breakpoint: %v", entry)
-						logger.Info("file sanity check: %v\n", module.files[entry.file] == file)
-
-						return entry.address, nil
-					} else if entry.line == line {
-						fmt.Printf("found non-stmt breakpoint at desired line: %v\n", entry)
+					if entry.line == line && module.files[entry.file] == file {
+						if entry.isStmt {
+							return entry.address, nil
+						} else {
+							logger.Info("non-stmt exists")
+						}
 					}
 				}
 			}
@@ -200,30 +205,31 @@ func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) 
 	return 0, fmt.Errorf("unable to find suitable instruction for line %d in file %s", line, file)
 }
 
-func (d *dwarfData) PCToLine(pc uint64) (line int, file string, functionName string, err error) {
+func (d *dwarfData) PCToLine(pc uint64) (line int, file string, function *dwarfFunc, err error) {
 	for _, module := range d.modules {
 		if pc >= module.startAddress && pc <= module.endAddress {
 			for _, entry := range module.entries {
 				if entry.address == pc {
 
-					logger.Info("function not found?")
-					return entry.line, module.files[entry.file], "", nil
+					function := d.PCToFunc(pc)
+
+					return entry.line, module.files[entry.file], function, nil
 
 				}
 			}
 		}
 	}
-	return 0, "", "", fmt.Errorf("unable to find instruction matching address %v", pc)
+	return 0, "", nil, fmt.Errorf("unable to find instruction matching address %v", pc)
 }
 
 func (d *dwarfData) PCToFunc(pc uint64) *dwarfFunc {
-	logger.Info("pc to func %#x", pc)
+	// logger.Info("pc to func %#x", pc)
 	for _, module := range d.modules {
 		for _, function := range module.functions {
-			logger.Info("func %v", function)
 			if pc >= function.lowPC && pc < function.highPC {
 				return function
 			}
+			// logger.Info("func %v does not match", function)
 		}
 	}
 
@@ -354,6 +360,8 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfFunc {
 			function.file = int(field.Val.(int64))
 		case dwarf.AttrDeclLine:
 			function.line = field.Val.(int64)
+			// adjust for inserted line
+			function.line--
 		case dwarf.AttrDeclColumn:
 			function.col = field.Val.(int64)
 		case dwarf.AttrFrameBase:
@@ -446,6 +454,9 @@ func parseModule(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *dwarfModule {
 			epilogueBegin: le.EpilogueBegin,
 			isStmt:        le.IsStmt,
 		}
+
+		// adjust for inserted line
+		entry.line--
 
 		dEntries = append(dEntries, entry)
 

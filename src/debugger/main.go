@@ -16,25 +16,35 @@ import (
 )
 
 type processContext struct {
-	sourceFile    string         // source code file
-	dwarfData     *dwarfData     // dwarf debug information about the binary
-	process       *exec.Cmd      // the running binary
-	pid           int            // the process id of the running binary
-	checkpointPid int            // int
-	bpointData    breakpointData // holds the instuctions for currently replaced by breakpoints
+	targetFile     string         // the executing binary file
+	sourceFile     string         // source code file
+	dwarfData      *dwarfData     // dwarf debug information about the binary
+	process        *exec.Cmd      // the running binary
+	pid            int            // the process id of the running binary
+	checkpointPid  int            // int
+	bpointData     breakpointData // holds the instuctions for currently replaced by breakpoints
+	cpointData     checkpointData
+	checkpointMode CheckpointMode
 }
 
 func main() {
-	targetFile := getValuesFromArgs()
+	defer cleanup()
+	precleanup()
 
-	ctx := &processContext{}
+	targetFile, checkpointMode := getValuesFromArgs()
 
-	ctx.dwarfData = getDwarfData(targetFile)
+	ctx := &processContext{
+		targetFile:     targetFile,
+		checkpointMode: checkpointMode,
+	}
+
+	ctx.dwarfData = getDwarfData(ctx.targetFile)
 
 	ctx.sourceFile = getSourceFileInfo(ctx.dwarfData)
 	ctx.bpointData = breakpointData{}.New()
+	ctx.cpointData = checkpointData{}.New()
 
-	ctx.process = startBinary(targetFile)
+	ctx.process = startBinary(ctx.targetFile)
 	ctx.pid = ctx.process.Process.Pid
 
 	insertMPIBreakpoints(ctx)
@@ -42,7 +52,6 @@ func main() {
 	printInstructions()
 
 	for {
-		// cmd := &command{cont, nil}
 		cmd := askForInput()
 
 		res := cmd.handle(ctx)
@@ -51,6 +60,7 @@ func main() {
 			break
 		}
 	}
+
 }
 
 func startBinary(target string) *exec.Cmd {
@@ -69,7 +79,9 @@ func startBinary(target string) *exec.Cmd {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
-		cmd.Process.Kill()
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
 		os.Exit(1)
 	}()
 
@@ -136,33 +148,40 @@ func printRegs(ctx *processContext) {
 }
 
 // parse and validate command line arguments
-func getValuesFromArgs() string {
+func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode) {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: debug <target binary>")
+		fmt.Println("Usage: debug <target binary> <checkpoint mode (file|fork)")
 		os.Exit(2)
 	}
 
 	switch os.Args[1] {
-	case "mpi":
-		logger.Info("mpi specified, loading example mpi binary")
-		return "examples/hello_mpi_c/hello"
-	case "c":
-		logger.Info("c specified, loading example c binary")
-		return "examples/hello_c/hello"
-	case "go":
-		logger.Info("go specified, loading example c binary")
-		return "examples/hello_go/hello"
+
+	case "hello":
+		logger.Info("loading example mpi hello binary")
+		targetFilePath = "bin/targets/hello"
+	default:
+
 	}
 
 	targetFilePath, err := filepath.Abs(os.Args[1])
 
-	if err != nil {
-		panic(err)
-	}
+	must(err)
+
+	targetFilePath, err = filepath.EvalSymlinks(targetFilePath)
+
+	must(err)
 
 	if _, err := os.Stat(targetFilePath); errors.Is(err, os.ErrNotExist) {
 		panic(err) // file does not exist
 	}
 
-	return targetFilePath
+	if len(os.Args) == 3 && os.Args[2] == "fork" {
+		checkpointMode = forkMode
+		logger.Info("Checkpoint mode: fork")
+	} else {
+		checkpointMode = fileMode
+		logger.Info("Checkpoint mode: file")
+	}
+
+	return targetFilePath, checkpointMode
 }

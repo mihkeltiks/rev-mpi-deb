@@ -4,14 +4,16 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path/filepath"
 	"syscall"
 
 	"github.com/go-delve/delve/pkg/dwarf/op"
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/proc"
 )
 
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
-
+	logger.Info("file %v", file)
 	address, err := ctx.dwarfData.lineToPC(file, line)
 
 	if err != nil {
@@ -26,6 +28,7 @@ func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 		address,
 		originalInstruction,
 		nil,
+		false,
 		false,
 	}
 
@@ -93,6 +96,12 @@ func getVariableFromMemory(ctx *processContext, varName string) (value interface
 
 	rawValue := peekDataFromMemory(ctx, address, variable.baseType.byteSize)
 
+	// memRawValue := proc.ReadFromMemFile(ctx.pid, address, int(variable.baseType.byteSize))
+
+	// fmt.Printf("raw value from ptrace: %v, mem-file: %v\n", rawValue, memRawValue)
+
+	logger.Info("got raw value of variable %s: %v", varName, rawValue)
+
 	return convertValueToType(rawValue, variable.baseType)
 }
 
@@ -128,7 +137,17 @@ func printInternalData(ctx *processContext, varName string) {
 		logger.Info("dwarf modules:\n%v", ctx.dwarfData.modules)
 	case "vars":
 		logger.Info("dwarf variables: %v\n", ctx.dwarfData.modules[0].variables)
+	case "maps":
+		logger.Info("proc/id/maps:")
+		proc.LogMapsFile(ctx.pid)
+	case "loc":
+		regs := getRegs(ctx, false)
+		line, fileName, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)
+		logger.Info("currently at line %v in %v (func %v) ip:%#x", line, filepath.Base(fileName), fn.Name(), regs.Rip)
+	case "cp":
+		logger.Info("checkpoints: %v", ctx.cpointData)
 	}
+
 }
 
 func quitDebugger() {

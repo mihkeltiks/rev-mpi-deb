@@ -23,7 +23,7 @@ func (stack functionStack) String() string {
 	return str
 }
 
-func getStack(ctx *processContext) functionStack {
+func getStack(ctx *processContext, bpoint *bpointData) functionStack {
 
 	regs := getRegs(ctx, false)
 
@@ -33,23 +33,29 @@ func getStack(ctx *processContext) functionStack {
 	var offset uint64
 
 	ptrSize := uint64(ptrSize())
-
+	// logger.Info("bpoint: %v", bpoint)
+	// logger.Info("ip: %#x", regs.Rip)
+	// logger.Info("sp: %#x", regs.Rsp)
+	// logger.Info("bp: %#x", regs.Rbp)
 	fn := ctx.dwarfData.PCToFunc(regs.Rip)
 	fnStack := []*dwarfFunc{fn}
 
 	for {
+		// logger.Info("func: %s", fn.name)
 
 		offset = 0
 
 		frameSize := basePointer - stackPointer + ptrSize
 
-		logger.Info("func: %s", fn.name)
 		// logger.Info("stack pointer: %#x", stackPointer)
 		// logger.Info("base pointer: %#x", basePointer)
 		// logger.Info("frame size: %d", frameSize)
 
-		if frameSize > 1024 || basePointer < 1 {
-			panic("invalid base pointer or frame size")
+		// logger.Info("frame size: %v", frameSize)
+
+		if frameSize > 1024 || frameSize <= ptrSize {
+			logger.Info("invalid base pointer or frame size")
+			frameSize = 32
 		}
 
 		frameData := make([]byte, frameSize)
@@ -57,21 +63,35 @@ func getStack(ctx *processContext) functionStack {
 		must(err)
 
 		// First instruction in frame - return address from stack frame
-		content := binary.LittleEndian.Uint64(frameData[offset : offset+ptrSize])
+		content := binary.LittleEndian.Uint64(frameData[:ptrSize])
 		fn = ctx.dwarfData.PCToFunc(content)
 
 		if fn != nil {
 			fnStack = append(fnStack, fn)
 		} else {
-			logger.Info("no matching function found for stack frame return address")
-			break
+			logger.Info("stack return address fallback")
+			// break
+			content := binary.LittleEndian.Uint64(frameData[ptrSize : 2*ptrSize])
+			fn = ctx.dwarfData.PCToFunc(content)
+
+			if fn != nil {
+				fnStack = append(fnStack, fn)
+			} else {
+				logger.Info("no matching function found for stack frame return address")
+				break
+			}
+
 		}
 
-		for offset = ptrSize; stackPointer+offset <= basePointer; offset += ptrSize {
-			content := binary.LittleEndian.Uint64(frameData[offset : offset+ptrSize])
+		for offset = 0; offset < frameSize; offset += ptrSize {
 
+			content = binary.LittleEndian.Uint64(frameData[offset : offset+ptrSize])
+			// _fn := ctx.dwarfData.PCToFunc(content)
+
+			// logger.Info("content at offset %d : %#x matching func: %v", offset, content, _fn)
 			// reached the end of the stack frame
-			if stackPointer+offset == basePointer {
+			if offset == frameSize-ptrSize {
+				logger.Info("end of frame")
 				basePointer = content
 				break
 			}

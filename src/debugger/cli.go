@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 )
 
 func askForInput() *command {
@@ -22,8 +24,17 @@ func askForInput() *command {
 	return command
 }
 
-// returns lowercase string user inputted from the cli
 func getUserInputLine() string {
+
+	c := make(chan os.Signal, 1)
+
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		// to handle cleanup while buffering stdin
+		<-c
+		cleanup()
+	}()
 
 	reader := bufio.NewReader(os.Stdin)
 

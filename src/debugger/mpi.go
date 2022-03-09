@@ -1,13 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"syscall"
-
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/proc"
 )
-
-type fn func()
 
 type mpiFuncNames struct {
 	SIGNATURE string
@@ -23,27 +19,61 @@ var MPI_FUNCS mpiFuncNames = mpiFuncNames{
 	RECEIVE:   "MPI_Receive",
 }
 
+var MPI_BPOINTS map[string]*bpointData
+
 func insertMPIBreakpoints(ctx *processContext) {
-	for _, function := range ctx.dwarfData.mpi.functions {
-		insertMPIBreakpoint(ctx, function)
+
+	if MPI_BPOINTS == nil {
+		initMPIBreakpointsData(ctx)
+	}
+
+	for _, bpoint := range MPI_BPOINTS {
+		insertMPIBreakpoint(ctx, bpoint, false)
 	}
 }
 
-func insertMPIBreakpoint(ctx *processContext, function *dwarfFunc) {
-	logger.Info("inserting bpoint for MPI function: %v", function)
+func insertMPIBreakpoint(ctx *processContext, bpoint *bpointData, isImmediateAfterRestore bool) {
 
-	funcEntries := ctx.dwarfData.getEntriesForFunction(function.name)
-	breakEntry := funcEntries[len(funcEntries)-1]
+	address := bpoint.address
 
-	address := breakEntry.address
+	logger.Info("inserting bpoint for MPI function: %v (at %#x)", bpoint.function.Name(), address)
 
-	originalInstruction := insertBreakpoint(ctx, address)
+	insertBreakpoint(ctx, address)
 
 	ctx.bpointData[address] = &bpointData{
 		address,
-		originalInstruction,
-		function,
-		true,
+		bpoint.originalInstruction,
+		bpoint.function,
+		bpoint.isMPIBpoint,
+		isImmediateAfterRestore,
+	}
+}
+
+func initMPIBreakpointsData(ctx *processContext) {
+
+	MPI_BPOINTS = make(map[string]*bpointData)
+
+	for _, function := range ctx.dwarfData.mpi.functions {
+
+		funcEntries := ctx.dwarfData.getEntriesForFunction(function.name)
+
+		var breakEntry dwarfEntry
+
+		if function.name == MPI_FUNCS.RECORD {
+			breakEntry = funcEntries[len(funcEntries)-1]
+		} else {
+			breakEntry = funcEntries[0]
+		}
+
+		originalInstruction := getOriginalInstruction(ctx, breakEntry.address)
+
+		MPI_BPOINTS[function.name] = &bpointData{
+			breakEntry.address,
+			originalInstruction,
+			function,
+			true,
+			false,
+		}
 	}
 }
 
@@ -65,115 +95,65 @@ type currentMPIFuncData struct {
 }
 
 func reinsertMPIBPoints(ctx *processContext, currentBpoint *bpointData) {
-	for _, function := range ctx.dwarfData.mpi.functions {
-		if function.name != currentBpoint.function.name {
-			if !isMPIBpointSet(ctx, function) {
-				insertMPIBreakpoint(ctx, function)
+	for _, bp := range MPI_BPOINTS {
+		if bp.function.name != currentBpoint.function.name {
+			if !isMPIBpointSet(ctx, bp.function) {
+				insertMPIBreakpoint(ctx, bp, false)
 			}
 		}
 	}
 
 }
 
-func runOnCheckpoint(ctx *processContext, function fn) {
-	realPid := ctx.pid
-
-	ctx.pid = ctx.checkpointPid
-
-	function()
-
-	ctx.pid = realPid
-}
-
 func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
+
+	opName := bpoint.function.name
+
+	logger.Info("\trecording mpi operation %v", opName)
+
+	if opName == MPI_FUNCS.RECORD && !bpoint.isImmediateAfterRestore {
+
+		logger.Info("bpoints at cp time: %v", ctx.bpointData)
+
+		checkpoint := cPoint{
+			pid:          int(getVariableFromMemory(ctx, "_MPI_CHECKPOINT_CHILD").(int32)),
+			opName:       currentMPIFunc.function.name,
+			regs:         getRegs(ctx, false),
+			stackRegions: proc.GetStackDataAddresses(ctx.pid),
+			bpoints:      make(breakpointData),
+		}
+
+		for address, bp := range ctx.bpointData {
+			checkpoint.bpoints[address] = &bpointData{
+				bp.address,
+				bp.originalInstruction,
+				bp.function,
+				bp.isMPIBpoint,
+				false,
+			}
+		}
+
+		// syscall.PtraceAttach(ctx.checkpointPid)
+
+		// syscall.Wait4(ctx.pid, nil, 0, nil)
+
+		// _, err := syscall.PtracePokeData(checkpoint.pid, uintptr(bpoint.address), bpoint.originalInstruction)
+
+		// checkpoint.bpoints[bpoint.address] = bpoint
+
+		checkpoint.stackRawData = proc.ReadFromMemFileByRegions(ctx.pid, checkpoint.stackRegions)
+
+		ctx.cpointData = append(ctx.cpointData, checkpoint)
+	}
+	// else {
+	// printVariable(ctx, "_MPI_CURRENT_DEST")
+	// printVariable(ctx, "_MPI_CURRENT_SOURCE")
+	// printVariable(ctx, "_MPI_CURRENT_TAG")
+	// }
 
 	currentMPIFunc = currentMPIFuncData{
 		addresses: make([]uint64, 0),
 		function:  bpoint.function,
 	}
-
-	switch bpoint.function.name {
-	case MPI_FUNCS.SEND:
-
-		// printVariable(ctx, "_MPI_CURRENT_DEST")
-		// printVariable(ctx, "_MPI_CURRENT_TAG")
-	case MPI_FUNCS.RECEIVE:
-
-		// printVariable(ctx, "_MPI_CURRENT_SOURCE")
-		// printVariable(ctx, "_MPI_CURRENT_TAG")
-	case MPI_FUNCS.RECORD:
-		printVariable(ctx, "_MPI_CURRENT_DEST")
-		printVariable(ctx, "_MPI_CURRENT_SOURCE")
-		printVariable(ctx, "_MPI_CURRENT_TAG")
-
-		if ctx.checkpointPid == 0 {
-			logger.Info("regs in parent")
-			printRegs(ctx)
-			ctx.checkpointPid = int(getVariableFromMemory(ctx, "_MPI_CHECKPOINT_CHILD").(int32))
-
-			logger.Info("child proc id is %d", ctx.checkpointPid)
-		} else {
-
-			err := syscall.PtraceAttach(ctx.checkpointPid)
-
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			syscall.Wait4(ctx.checkpointPid, nil, 0, nil)
-
-			logger.Info("from child:")
-			runOnCheckpoint(ctx, func() {
-				printVariable(ctx, "_MPI_CURRENT_DEST")
-				printVariable(ctx, "_MPI_CURRENT_SOURCE")
-				printVariable(ctx, "_MPI_CURRENT_TAG")
-			})
-
-		}
-
-	}
-
-	// var recordArgIndices []int
-
-	// switch function.name {
-	// case "MPI_Send":
-	// 	recordArgIndices = []int{
-	// 		1,
-	// 		3,
-	// 		4,
-	// 	}
-	// case "MPI_Recv":
-	// 	recordArgIndices = []int{
-	// 		1,
-	// 		3,
-	// 		4,
-	// 	}
-
-	// case "MPI_WRAPPER_RECORD":
-	// 	recordArgIndices = []int{
-	// 		3,
-	// 		4,
-	// 		5,
-	// 	}
-	// default:
-	// 	recordArgIndices = nil
-	// }
-
-	// if recordArgIndices == nil {
-	// 	return
-	// }
-
-	// regs := getRegs(ctx, false)
-
-	// 		frameBase := int64(regs.Rbp - 16)
-	// 		dRegs := DwarfRegisters{FrameBase: frameBase}
-
-	// 		address, _, err := ExecuteStackProgram(dRegs, param.locationInstructions, ptrSize(), nil)
-	// 		logger.Info("param %s (type: '%v' location: %s)", param.name, param.baseType.name, param.locationInstructions)
-	// 		must(err)
-
-	// 		rawValue := peekDataFromMemory(ctx, uint64(address), 4)
-	// 		value := convertValueToType(rawValue, &dwarfBaseType{name: "int", byteSize: 4}).(int32)
-	// 		logger.Info("\t value of %s at %#x - %v - framebase: %#x -> address: %#x", param.name, address, value, frameBase, address)
 
 }
