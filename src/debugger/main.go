@@ -21,13 +21,13 @@ type processContext struct {
 	dwarfData      *dwarfData     // dwarf debug information about the binary
 	process        *exec.Cmd      // the running binary
 	pid            int            // the process id of the running binary
-	checkpointPid  int            // int
 	bpointData     breakpointData // holds the instuctions for currently replaced by breakpoints
-	cpointData     checkpointData
-	checkpointMode CheckpointMode
+	cpointData     checkpointData // holds data about currently recorded checkppoints
+	checkpointMode CheckpointMode // whether checkpoints are recorded in files or in forked processes
 }
 
 func main() {
+
 	defer cleanup()
 	precleanup()
 
@@ -36,13 +36,13 @@ func main() {
 	ctx := &processContext{
 		targetFile:     targetFile,
 		checkpointMode: checkpointMode,
+		bpointData:     breakpointData{}.New(),
+		cpointData:     checkpointData{}.New(),
 	}
 
 	ctx.dwarfData = getDwarfData(ctx.targetFile)
 
 	ctx.sourceFile = getSourceFileInfo(ctx.dwarfData)
-	ctx.bpointData = breakpointData{}.New()
-	ctx.cpointData = checkpointData{}.New()
 
 	ctx.process = startBinary(ctx.targetFile)
 	ctx.pid = ctx.process.Process.Pid
@@ -124,6 +124,7 @@ func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
 
 	if err != nil {
 		fmt.Printf("getregs error: %v\n", err)
+		panic(err)
 	}
 
 	// if currently stopped by a breakpoint, rewind the instruction pointer by 1

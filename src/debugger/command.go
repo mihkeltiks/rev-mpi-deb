@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/ottmartens/cc-rev-db/logger"
 )
@@ -30,6 +31,8 @@ type cmdResult struct {
 	err    error
 	exited bool
 }
+
+var currentRegs *syscall.PtraceRegs
 
 func (cmd *command) handle(ctx *processContext) *cmdResult {
 	var err error
@@ -58,13 +61,18 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 
 	if cmd.isProgressCommand() {
 		for {
-			bpoint := restoreCaughtBreakpoint(ctx)
+
+			printInternalData(ctx, "loc")
+
+			bpoint, regs := restoreCaughtBreakpoint(ctx)
 
 			if bpoint == nil {
 				break
 			}
 
 			if bpoint.isMPIBpoint {
+				syscall.PtraceSetRegs(ctx.pid, regs)
+
 				recordMPIOperation(ctx, bpoint)
 
 				reinsertMPIBPoints(ctx, bpoint)
@@ -72,15 +80,11 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 				logger.Info("stack: %v", getStack(ctx, bpoint))
 			}
 
-			logger.Info("Here, %v", bpoint)
-
 			if !bpoint.isMPIBpoint {
 				break
 			}
 
 			exited = continueExecution(ctx)
-
-			logger.Info("after continue exec")
 
 			if exited {
 				break
@@ -126,10 +130,9 @@ func parseCommandFromString(input string) (c *command) {
 	case restoreRegexp.Match([]byte(input)):
 		split := strings.Split(input, " ")
 
-		index := 1
+		index := 0
 		if len(split) > 1 {
 			index, _ = strconv.Atoi(split[1])
-
 		}
 
 		return &command{restore, index}

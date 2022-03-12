@@ -10,25 +10,32 @@ import (
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
-func GetCheckpointDataAddresses(pid int, sourceFile string) []MemRegion {
+func GetFileCheckpointDataAddresses(pid int, sourceFile string) []MemRegion {
 
-	checkpointRegionIdents := map[string]bool{
-		"[heap]":   true,
-		sourceFile: true,
-	}
+	return GetDataAddressesByIdents(pid, []string{"[heap]", "[stack]", sourceFile})
+	// return GetDataAddressesByIdents(pid, []string{"[stack]", sourceFile})
+}
 
-	return getDataAddressesByIdents(pid, checkpointRegionIdents)
+func GetForkCheckpointDataAddresses(pid int, sourceFile string) []MemRegion {
+
+	return GetDataAddressesByIdents(pid, []string{"[heap]", sourceFile})
 }
 
 func GetStackDataAddresses(pid int) []MemRegion {
-	idents := map[string]bool{
-		"[stack]": true,
-	}
 
-	return getDataAddressesByIdents(pid, idents)
+	return GetDataAddressesByIdents(pid, []string{"[stack]"})
 }
 
-func getDataAddressesByIdents(pid int, identifiers map[string]bool) []MemRegion {
+func GetDataAddressesByIdents(pid int, identifiers []string) []MemRegion {
+
+	identsMap := make(map[string]bool)
+
+	for _, ident := range identifiers {
+		identsMap[ident] = true
+	}
+
+	logger.Info("identsMpa %v", identsMap)
+
 	regions := make([]MemRegion, 0)
 
 	mmaps := readMapsFile(pid)
@@ -36,7 +43,7 @@ func getDataAddressesByIdents(pid int, identifiers map[string]bool) []MemRegion 
 	for _, mmap := range mmaps {
 		ident := mmap[len(mmap)-1]
 
-		if identifiers[ident] {
+		if identsMap[ident] {
 			bounds := strings.Split(mmap[0], "-")
 
 			start, _ := strconv.ParseUint(bounds[0], 16, 64)

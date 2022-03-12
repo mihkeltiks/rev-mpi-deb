@@ -65,18 +65,18 @@ func getOriginalInstruction(ctx *processContext, address uint64) (originalInstru
 }
 
 // restores the original instruction if the executable is currently caught at a breakpoint
-func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData) {
+func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, registers *syscall.PtraceRegs) {
 	regs := getRegs(ctx, true)
 
-	line, file, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)
+	// line, file, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)
 
-	logger.Info("looking to restore bpoint at %#x (line %d in %s, func: %v)", regs.Rip, line, filepath.Base(file), fn.Name())
+	// logger.Info("looking to restore bpoint at %#x (line %d in %s, func: %v)", regs.Rip, line, filepath.Base(file), fn.Name())
 
 	bpoint := findBreakpointByAddress(ctx, regs.Rip)
 
 	if bpoint == nil {
 		logger.Info("Cannot find a breakpoint to restore")
-		return nil
+		return nil, nil
 	}
 
 	if bpoint.isMPIBpoint {
@@ -92,10 +92,10 @@ func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData) {
 	syscall.PtracePokeData(ctx.pid, uintptr(regs.Rip), bpoint.originalInstruction)
 
 	// set the rewinded instruction pointer
-	syscall.PtraceSetRegs(ctx.pid, regs)
+	// syscall.PtraceSetRegs(ctx.pid, regs)
 
 	// remove record of breakpoint
 	delete(ctx.bpointData, bpoint.address)
 
-	return bpoint
+	return bpoint, regs
 }

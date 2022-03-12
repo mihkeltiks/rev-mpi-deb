@@ -11,11 +11,21 @@ import (
 )
 
 const (
-	TEMP_FOLDER         = "bin/temp"
-	DEST_FOLDER         = "bin/targets"
-	WRAPPED_MPI_INCLUDE = `#include "mpi_wrap.h"`
-	WRAPPED_MPI_PATH    = "src/compiler/mpi_wrap_include"
+	TEMP_FOLDER              = "bin/temp"
+	DEST_FOLDER              = "bin/targets"
+	WRAPPED_MPI_FORK_INCLUDE = `#include "mpi_wrap_fork.h"`
+	WRAPPED_MPI_FILE_INCLUDE = `#include "mpi_wrap_file.h"`
+	WRAPPED_MPI_PATH         = "src/compiler/mpi_wrap_include"
 )
+
+type CheckpointMode int
+
+const (
+	fileMode CheckpointMode = iota
+	forkMode
+)
+
+var WRAPPED_MPI_INCLUDE string
 
 /*
 	Wrapper to compile MPI programs
@@ -26,6 +36,12 @@ func main() {
 
 	// path to input file
 	inputFile := os.Args[1]
+
+	if len(os.Args) > 2 && os.Args[2] == "fork" {
+		WRAPPED_MPI_INCLUDE = WRAPPED_MPI_FORK_INCLUDE
+	} else {
+		WRAPPED_MPI_INCLUDE = WRAPPED_MPI_FILE_INCLUDE
+	}
 
 	ensureTargetExists(inputFile)
 
@@ -108,7 +124,7 @@ func ensureTargetExists(inputFile string) {
 
 func validateArgs() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: compiler <target file>")
+		fmt.Println("Usage: compiler <target file> <checkpoint_mode (fork|file)")
 		os.Exit(2)
 	}
 }

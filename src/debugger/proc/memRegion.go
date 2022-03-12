@@ -11,7 +11,7 @@ type MemRegion struct {
 }
 
 func (mr MemRegion) String() string {
-	return fmt.Sprintf("%#x-%#x [%s]", mr.Start, mr.End, mr.Ident)
+	return fmt.Sprintf("start-%#x len-%#x %s", mr.Start, mr.End, mr.Ident)
 }
 
 func (mr MemRegion) Contents(pid int) []byte {
