@@ -5,22 +5,23 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/ottmartens/cc-rev-db/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 type breakpointData map[uint64]*bpointData
 
 type bpointData struct {
-	address                 uint64     // address of the instruction
-	originalInstruction     []byte     // actual contents of the instruction at address
-	function                *dwarfFunc // the pointer to the function the breakpoint was inserted at
+	address                 uint64          // address of the instruction
+	originalInstruction     []byte          // actual contents of the instruction at address
+	function                *dwarf.Function // the pointer to the function the breakpoint was inserted at
 	isMPIBpoint             bool
 	isImmediateAfterRestore bool
 }
 
 func (b *bpointData) String() string {
 	if b.function != nil {
-		return fmt.Sprintf("{address: %#x (%v)}", b.address, b.function.name)
+		return fmt.Sprintf("{address: %#x (%v)}", b.address, b.function.Name())
 	}
 	return fmt.Sprintf("{address: %#x}", b.address)
 }
@@ -82,7 +83,7 @@ func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, regi
 	}
 
 	if bpoint.isMPIBpoint {
-		logger.Debug("Caught auto-inserted MPI breakpoint, func: %v", bpoint.function.name)
+		logger.Debug("Caught auto-inserted MPI breakpoint, func: %v", bpoint.function.Name())
 	} else {
 		line, file, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
 		logger.Debug("Caught at a breakpoint: line: %d, file: %v", line, filepath.Base(file))

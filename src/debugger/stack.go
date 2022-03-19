@@ -7,15 +7,16 @@ import (
 	"fmt"
 	"syscall"
 
+	"github.com/ottmartens/cc-rev-db/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
-type functionStack []*dwarfFunc
+type functionStack []*dwarf.Function
 
 func (stack functionStack) String() string {
 	str := ""
 	for index, fn := range stack {
-		str = fmt.Sprintf("%s%s", str, fn.name)
+		str = fmt.Sprintf("%s%s", str, fn.Name())
 
 		if index != len(stack)-1 {
 			str = fmt.Sprintf("%s <- ", str)
@@ -41,7 +42,7 @@ func getStack(ctx *processContext, bpoint *bpointData) functionStack {
 	// logger.Debug("sp: %#x", regs.Rsp)
 	// logger.Debug("bp: %#x", regs.Rbp)
 	fn := ctx.dwarfData.PCToFunc(regs.Rip)
-	fnStack := []*dwarfFunc{fn}
+	fnStack := []*dwarf.Function{fn}
 
 	for {
 		// logger.Debug("func: %s", fn.name)
@@ -101,7 +102,7 @@ func getStack(ctx *processContext, bpoint *bpointData) functionStack {
 		}
 
 		// end of stack
-		if fn.name == MAIN_FN {
+		if fn.Name() == MAIN_FN {
 			break
 		}
 

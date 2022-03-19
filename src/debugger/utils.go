@@ -14,8 +14,6 @@ import (
 
 type fn func()
 
-const MAIN_FN = "main"
-
 func must(err error) {
 	if err != nil {
 		panic(err)

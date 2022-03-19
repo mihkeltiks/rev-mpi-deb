@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/go-delve/delve/pkg/dwarf/op"
+	"github.com/ottmartens/cc-rev-db/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/proc"
 )
@@ -76,7 +77,7 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 	logger.Debug("file %v", file)
-	address, err := ctx.dwarfData.lineToPC(file, line)
+	address, err := ctx.dwarfData.LineToPC(file, line)
 
 	if err != nil {
 		logger.Debug("cannot set breakpoint at line: %v", err)
@@ -141,14 +142,14 @@ func printVariable(ctx *processContext, varName string) {
 }
 
 func getVariableFromMemory(ctx *processContext, varName string) (value interface{}) {
-	variable := ctx.dwarfData.lookupVariable(varName)
+	variable := ctx.dwarfData.LookupVariable(varName)
 
 	if variable == nil {
 		fmt.Printf("Cannot find variable: %s\n", varName)
 		return nil
 	}
 
-	address, _, err := variable.locationInstructions.decode(op.DwarfRegisters{})
+	address, _, err := variable.DecodeLocation(op.DwarfRegisters{})
 
 	if err != nil {
 		panic(fmt.Sprintf("Error decoding variable: %v", err))
@@ -159,7 +160,7 @@ func getVariableFromMemory(ctx *processContext, varName string) (value interface
 		return nil
 	}
 
-	rawValue := peekDataFromMemory(ctx, address, variable.baseType.byteSize)
+	rawValue := peekDataFromMemory(ctx, address, variable.ByteSize())
 
 	logger.Info("location of variable: %#x", address)
 	logger.Info("raw value of variable: %v", rawValue)
@@ -169,7 +170,7 @@ func getVariableFromMemory(ctx *processContext, varName string) (value interface
 
 	logger.Debug("got raw value of variable %s: %v", varName, rawValue)
 
-	return convertValueToType(rawValue, variable.baseType)
+	return convertValueToType(rawValue, variable)
 }
 
 func peekDataFromMemory(ctx *processContext, address uint64, byteCount int64) []byte {
@@ -180,17 +181,17 @@ func peekDataFromMemory(ctx *processContext, address uint64, byteCount int64) []
 	return data
 }
 
-func convertValueToType(data []byte, dType *dwarfBaseType) interface{} {
+func convertValueToType(data []byte, variable *dwarf.Variable) interface{} {
 
 	var value interface{}
 
-	switch dType.byteSize {
+	switch variable.ByteSize() {
 	case 4:
 		value = int32(binary.LittleEndian.Uint32(data))
 	case 8:
 		value = int64(binary.LittleEndian.Uint64(data))
 	default:
-		fmt.Printf("unknown bytesize? %v\n", dType)
+		fmt.Printf("unknown bytesize? %v\n", variable)
 	}
 
 	return value
@@ -199,11 +200,11 @@ func convertValueToType(data []byte, dType *dwarfBaseType) interface{} {
 func printInternalData(ctx *processContext, varName string) {
 	switch varName {
 	case "types":
-		logger.Info("dwarf types:\n%v", ctx.dwarfData.types)
+		logger.Info("dwarf types:\n%v", ctx.dwarfData.Types)
 	case "modules":
-		logger.Info("dwarf modules:\n%v", ctx.dwarfData.modules)
+		logger.Info("dwarf modules:\n%v", ctx.dwarfData.Modules)
 	case "vars":
-		logger.Info("dwarf variables: %v\n", ctx.dwarfData.modules[0].variables)
+		logger.Info("dwarf variables: %v\n", ctx.dwarfData.Modules[0].Variables)
 	case "maps":
 		logger.Info("proc/id/maps:")
 		proc.LogMapsFile(ctx.pid)

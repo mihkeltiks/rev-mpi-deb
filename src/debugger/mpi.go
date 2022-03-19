@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/ottmartens/cc-rev-db/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
@@ -52,22 +53,24 @@ func initMPIBreakpointsData(ctx *processContext) {
 
 	MPI_BPOINTS = make(map[string]*bpointData)
 
-	for _, function := range ctx.dwarfData.mpi.functions {
+	for _, function := range ctx.dwarfData.Mpi.Functions {
 
-		funcEntries := ctx.dwarfData.getEntriesForFunction(function.name)
+		fName := function.Name()
 
-		var breakEntry dwarfEntry
+		funcEntries := ctx.dwarfData.GetEntriesForFunction(fName)
 
-		if function.name == MPI_FUNCS.RECORD {
+		var breakEntry dwarf.Entry
+
+		if fName == MPI_FUNCS.RECORD {
 			breakEntry = funcEntries[len(funcEntries)-1]
 		} else {
 			breakEntry = funcEntries[0]
 		}
 
-		originalInstruction := getOriginalInstruction(ctx, breakEntry.address)
+		originalInstruction := getOriginalInstruction(ctx, breakEntry.Address)
 
-		MPI_BPOINTS[function.name] = &bpointData{
-			breakEntry.address,
+		MPI_BPOINTS[fName] = &bpointData{
+			breakEntry.Address,
 			originalInstruction,
 			function,
 			true,
@@ -76,7 +79,7 @@ func initMPIBreakpointsData(ctx *processContext) {
 	}
 }
 
-func isMPIBpointSet(ctx *processContext, function *dwarfFunc) bool {
+func isMPIBpointSet(ctx *processContext, function *dwarf.Function) bool {
 	for _, bpoint := range ctx.bpointData {
 		if bpoint.isMPIBpoint && bpoint.function == function {
 			return true
@@ -90,12 +93,12 @@ var currentMPIFunc currentMPIFuncData
 
 type currentMPIFuncData struct {
 	addresses []uint64
-	function  *dwarfFunc
+	function  *dwarf.Function
 }
 
 func reinsertMPIBPoints(ctx *processContext, currentBpoint *bpointData) {
 	for _, bp := range MPI_BPOINTS {
-		if bp.function.name != currentBpoint.function.name {
+		if bp.function.Name() != currentBpoint.function.Name() {
 			if !isMPIBpointSet(ctx, bp.function) {
 				insertMPIBreakpoint(ctx, bp, false)
 			}
@@ -106,12 +109,12 @@ func reinsertMPIBPoints(ctx *processContext, currentBpoint *bpointData) {
 
 func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
 
-	opName := bpoint.function.name
+	opName := bpoint.function.Name()
 
 	logger.Debug("\trecording mpi operation %v", opName)
 
 	if opName == MPI_FUNCS.RECORD && !bpoint.isImmediateAfterRestore {
-		createCheckpoint(ctx, currentMPIFunc.function.name)
+		createCheckpoint(ctx, currentMPIFunc.function.Name())
 	}
 	// else {
 	// printVariable(ctx, "_MPI_CURRENT_DEST")

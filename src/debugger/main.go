@@ -11,18 +11,21 @@ import (
 	"reflect"
 	"syscall"
 
+	"github.com/ottmartens/cc-rev-db/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
+const MAIN_FN = "main"
+
 type processContext struct {
-	targetFile     string         // the executing binary file
-	sourceFile     string         // source code file
-	dwarfData      *dwarfData     // dwarf debug information about the binary
-	process        *exec.Cmd      // the running binary
-	pid            int            // the process id of the running binary
-	bpointData     breakpointData // holds the instuctions for currently replaced by breakpoints
-	cpointData     checkpointData // holds data about currently recorded checkppoints
-	checkpointMode CheckpointMode // whether checkpoints are recorded in files or in forked processes
+	targetFile     string           // the executing binary file
+	sourceFile     string           // source code file
+	dwarfData      *dwarf.DwarfData // dwarf debug information about the binary
+	process        *exec.Cmd        // the running binary
+	pid            int              // the process id of the running binary
+	bpointData     breakpointData   // holds the instuctions for currently replaced by breakpoints
+	cpointData     checkpointData   // holds data about currently recorded checkppoints
+	checkpointMode CheckpointMode   // whether checkpoints are recorded in files or in forked processes
 }
 
 func main() {
@@ -40,9 +43,10 @@ func main() {
 		cpointData:     checkpointData{}.New(),
 	}
 
-	ctx.dwarfData = getDwarfData(ctx.targetFile)
+	ctx.dwarfData = dwarf.ParseDwarfData(ctx.targetFile)
+	ctx.dwarfData.ResolveMPIDebugInfo(MPI_FUNCS.SIGNATURE)
 
-	ctx.sourceFile = getSourceFileInfo(ctx.dwarfData)
+	ctx.sourceFile = ctx.dwarfData.FindEntrySourceFile(MAIN_FN)
 
 	ctx.process = startBinary(ctx.targetFile)
 	ctx.pid = ctx.process.Process.Pid
@@ -84,15 +88,6 @@ func startBinary(target string) *exec.Cmd {
 	}
 
 	return cmd
-}
-
-func getSourceFileInfo(d *dwarfData) (sourceFile string) {
-
-	module, function := d.lookupFunc(MAIN_FN)
-
-	sourceFile = module.files[function.file]
-
-	return sourceFile
 }
 
 func logRegistersState(ctx *processContext) {
