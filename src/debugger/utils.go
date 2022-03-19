@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 	"unsafe"
 
 	"github.com/ottmartens/cc-rev-db/logger"
@@ -37,7 +38,7 @@ func executeOnProcess(ctx *processContext, targetPid int, function fn) {
 }
 
 func cleanup() {
-	logger.Info("removing temporary files..")
+	logger.Debug("removing temporary files..")
 
 	removeTempFiles()
 }
@@ -59,4 +60,18 @@ func removeTempFiles() {
 
 	}
 
+}
+
+// prevent the thread from sleeping
+// (contrary to time.Sleep() which can cause issues with ptrace)
+func waitWithoutSleep(d time.Duration) {
+	start := time.Now().UnixNano()
+	logger.Warn("starting wait")
+	for {
+
+		if time.Now().UnixNano() > start+int64(d) {
+			break
+		}
+	}
+	logger.Warn("ended wait")
 }

@@ -194,7 +194,7 @@ func (d *dwarfData) lineToPC(file string, line int) (address uint64, err error) 
 						if entry.isStmt {
 							return entry.address, nil
 						} else {
-							logger.Info("non-stmt exists")
+							logger.Debug("non-stmt exists")
 						}
 					}
 				}
@@ -223,13 +223,13 @@ func (d *dwarfData) PCToLine(pc uint64) (line int, file string, function *dwarfF
 }
 
 func (d *dwarfData) PCToFunc(pc uint64) *dwarfFunc {
-	// logger.Info("pc to func %#x", pc)
+	// logger.Debug("pc to func %#x", pc)
 	for _, module := range d.modules {
 		for _, function := range module.functions {
 			if pc >= function.lowPC && pc < function.highPC {
 				return function
 			}
-			// logger.Info("func %v does not match", function)
+			// logger.Debug("func %v does not match", function)
 		}
 	}
 
@@ -320,7 +320,7 @@ func getDwarfData(targetFile string) *dwarfData {
 			currentModule.variables = append(currentModule.variables, variable)
 
 		default:
-			// logger.Info("unhandled tag type: %v", entry.Tag)
+			// logger.Debug("unhandled tag type: %v", entry.Tag)
 		}
 
 	}

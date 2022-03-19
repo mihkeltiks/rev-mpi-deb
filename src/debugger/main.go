@@ -27,6 +27,7 @@ type processContext struct {
 }
 
 func main() {
+	// logger.SetMaxLogLevel(logger.Levels.Info)
 
 	defer cleanup()
 	precleanup()
@@ -49,7 +50,21 @@ func main() {
 
 	insertMPIBreakpoints(ctx)
 
-	printInstructions()
+	// printInstructions()
+
+	// time.Sleep(time.Millisecond * 500)
+
+	// (&command{bpoint, 26}).handle(ctx)
+
+	// (&command{cont, nil}).handle(ctx)
+	// time.Sleep(time.Millisecond * 100)
+	// (&command{restore, 0}).handle(ctx)
+
+	// time.Sleep(time.Millisecond * 500)
+	// (&command{cont, nil}).handle(ctx)
+
+	// time.Sleep(time.Millisecond * 500)
+	// (&command{cont, nil}).handle(ctx)
 
 	for {
 		cmd := askForInput()
@@ -110,11 +125,11 @@ func logRegistersState(ctx *processContext) {
 
 	line, fileName, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
 
-	logger.Info("instruction pointer: %#x (line %d in %s)\n", regs.Rip, line, fileName)
+	logger.Debug("instruction pointer: %#x (line %d in %s)\n", regs.Rip, line, fileName)
 
 	// data := make([]byte, 4)
 	// syscall.PtracePeekData(ctx.pid, uintptr(regs.Rip), data)
-	// logger.Info("ip pointing to: %v\n", data)
+	// logger.Debug("ip pointing to: %v\n", data)
 }
 
 func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
@@ -123,9 +138,28 @@ func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
 	err := syscall.PtraceGetRegs(ctx.pid, &regs)
 
 	if err != nil {
-		fmt.Printf("getregs error: %v\n", err)
-		panic(err)
+		logger.Warn("error getting registers")
 	}
+
+	// if err != nil {
+	// 	fmt.Printf("getregs error: %v\n\n\n", err)
+
+	// 	logger.Debug("sending signal")
+
+	// 	ctx.process.Process.Signal(syscall.Signal(syscall.SIGCONT))
+
+	// 	logger.Debug("waiting")
+
+	// 	syscall.Wait4(ctx.pid, nil, 0, nil)
+	// 	logger.Debug("getting regs again")
+
+	// 	err := syscall.PtraceGetRegs(ctx.pid, &regs)
+
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+
+	// }
 
 	// if currently stopped by a breakpoint, rewind the instruction pointer by 1
 	// to find the correct instruction (rewind the interrupt instruction)
@@ -155,16 +189,16 @@ func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode) 
 		os.Exit(2)
 	}
 
+	var err error
+
 	switch os.Args[1] {
 
 	case "hello":
 		logger.Info("loading example mpi hello binary")
-		targetFilePath = "bin/targets/hello"
+		targetFilePath, err = filepath.Abs("bin/targets/hello")
 	default:
-
+		targetFilePath, err = filepath.Abs(os.Args[1])
 	}
-
-	targetFilePath, err := filepath.Abs(os.Args[1])
 
 	must(err)
 

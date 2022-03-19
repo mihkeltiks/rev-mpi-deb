@@ -12,18 +12,30 @@ import (
 
 func GetFileCheckpointDataAddresses(pid int, sourceFile string) []MemRegion {
 
-	return GetDataAddressesByIdents(pid, []string{"[heap]", "[stack]", sourceFile})
-	// return GetDataAddressesByIdents(pid, []string{"[stack]", sourceFile})
+	idents := []string{
+		// "[heap]",
+		"[stack]",
+		sourceFile,
+	}
+
+	return GetDataAddressesByIdents(pid, idents)
 }
 
 func GetForkCheckpointDataAddresses(pid int, sourceFile string) []MemRegion {
+	idents := []string{
+		"[heap]",
+		sourceFile,
+	}
 
-	return GetDataAddressesByIdents(pid, []string{"[heap]", sourceFile})
+	return GetDataAddressesByIdents(pid, idents)
 }
 
 func GetStackDataAddresses(pid int) []MemRegion {
+	idents := []string{
+		"[stack]",
+	}
 
-	return GetDataAddressesByIdents(pid, []string{"[stack]"})
+	return GetDataAddressesByIdents(pid, idents)
 }
 
 func GetDataAddressesByIdents(pid int, identifiers []string) []MemRegion {
@@ -34,13 +46,14 @@ func GetDataAddressesByIdents(pid int, identifiers []string) []MemRegion {
 		identsMap[ident] = true
 	}
 
-	logger.Info("identsMpa %v", identsMap)
+	logger.Debug("reading memory regions with following identifiers: %v", identifiers)
 
 	regions := make([]MemRegion, 0)
 
 	mmaps := readMapsFile(pid)
 
 	for _, mmap := range mmaps {
+
 		ident := mmap[len(mmap)-1]
 
 		if identsMap[ident] {
@@ -53,6 +66,7 @@ func GetDataAddressesByIdents(pid int, identifiers []string) []MemRegion {
 				start,
 				end,
 				ident,
+				nil,
 			})
 
 		}
@@ -88,6 +102,6 @@ func LogMapsFile(pid int) {
 	regions := readMapsFile(pid)
 
 	for _, region := range regions {
-		logger.Info("%v", region)
+		logger.Debug("%v", region)
 	}
 }

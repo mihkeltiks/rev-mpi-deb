@@ -35,7 +35,7 @@ func insertMPIBreakpoint(ctx *processContext, bpoint *bpointData, isImmediateAft
 
 	address := bpoint.address
 
-	logger.Info("inserting bpoint for MPI function: %v (at %#x)", bpoint.function.Name(), address)
+	logger.Debug("inserting bpoint for MPI function: %v (at %#x)", bpoint.function.Name(), address)
 
 	insertBreakpoint(ctx, address)
 
@@ -108,7 +108,7 @@ func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
 
 	opName := bpoint.function.name
 
-	logger.Info("\trecording mpi operation %v", opName)
+	logger.Debug("\trecording mpi operation %v", opName)
 
 	if opName == MPI_FUNCS.RECORD && !bpoint.isImmediateAfterRestore {
 		createCheckpoint(ctx, currentMPIFunc.function.name)

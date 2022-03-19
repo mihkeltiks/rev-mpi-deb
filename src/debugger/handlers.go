@@ -12,44 +12,113 @@ import (
 	"github.com/ottmartens/cc-rev-db/proc"
 )
 
+func (cmd *command) handle(ctx *processContext) *cmdResult {
+	var err error
+	var exited bool
+
+	logger.Info("handling command %+v", cmd)
+
+	switch cmd.code {
+	case bpoint:
+		err = setBreakPoint(ctx, ctx.sourceFile, cmd.argument.(int))
+	case singleStep:
+		exited = continueExecution(ctx, true)
+	case cont:
+		exited = continueExecution(ctx, false)
+	case restore:
+		cpIndex := len(ctx.cpointData) - (1 + cmd.argument.(int))
+
+		restoreCheckpoint(ctx, cpIndex)
+	case print:
+		printVariable(ctx, cmd.argument.(string))
+	case quit:
+		quitDebugger()
+	case help:
+		printInstructions()
+	case printInternal:
+		printInternalData(ctx, cmd.argument.(string))
+	}
+
+	if cmd.isProgressCommand() {
+
+		for {
+
+			if exited {
+				break
+			}
+
+			bpoint, _ := restoreCaughtBreakpoint(ctx)
+
+			if bpoint == nil {
+				break
+			}
+
+			if bpoint.isMPIBpoint {
+
+				recordMPIOperation(ctx, bpoint)
+
+				reinsertMPIBPoints(ctx, bpoint)
+			} else {
+
+				printInternalData(ctx, "loc")
+			}
+
+			if !bpoint.isMPIBpoint || cmd.code == singleStep {
+				break
+			}
+
+			exited = continueExecution(ctx, false)
+		}
+	}
+
+	return &cmdResult{err, exited}
+}
+
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
-	logger.Info("file %v", file)
+	logger.Debug("file %v", file)
 	address, err := ctx.dwarfData.lineToPC(file, line)
 
 	if err != nil {
-		logger.Info("cannot set breakpoint at line: %v", err)
+		logger.Debug("cannot set breakpoint at line: %v", err)
 		return err
 	}
 
-	logger.Info("setting breakpoint at file: %v, line: %d", file, line)
+	logger.Debug("setting breakpoint at file: %v, line: %d", file, line)
 	originalInstruction := insertBreakpoint(ctx, address)
 
 	ctx.bpointData[address] = &bpointData{
-		address,
-		originalInstruction,
-		nil,
-		false,
-		false,
+		address:                 address,
+		originalInstruction:     originalInstruction,
+		function:                nil,
+		isMPIBpoint:             false,
+		isImmediateAfterRestore: false,
 	}
 
 	return
 }
 
-func continueExecution(ctx *processContext) (exited bool) {
+func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 	var waitStatus syscall.WaitStatus
 
+	if singleStep {
+		err := syscall.PtraceSingleStep(ctx.pid)
+		must(err)
+	} else {
+		err := syscall.PtraceCont(ctx.pid, 0)
+		must(err)
+	}
+
 	for i := 0; i < 100; i++ {
-		syscall.PtraceCont(ctx.pid, 0)
 
 		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)
 
 		if waitStatus.Exited() {
-			logger.Info("The binary exited with code %v", waitStatus.ExitStatus())
+			logger.Debug("The binary exited with code %v", waitStatus.ExitStatus())
 			return true
 		}
 
 		if waitStatus.StopSignal() == syscall.SIGTRAP && waitStatus.TrapCause() != syscall.PTRACE_EVENT_CLONE {
-			logger.Info("binary hit trap, execution paused")
+			logger.Debug("binary hit trap, execution paused (trap cause: %v)", waitStatus.TrapCause())
 			return false
 		}
 		// else {
@@ -58,10 +127,6 @@ func continueExecution(ctx *processContext) (exited bool) {
 	}
 
 	panic(fmt.Sprintf("stuck at wait with signal: %v", waitStatus.StopSignal()))
-}
-
-func singleStep(ctx *processContext) {
-	syscall.PtraceSingleStep(ctx.pid)
 }
 
 func printVariable(ctx *processContext, varName string) {
@@ -96,11 +161,13 @@ func getVariableFromMemory(ctx *processContext, varName string) (value interface
 
 	rawValue := peekDataFromMemory(ctx, address, variable.baseType.byteSize)
 
+	logger.Info("location of variable: %#x", address)
+	logger.Info("raw value of variable: %v", rawValue)
 	// memRawValue := proc.ReadFromMemFile(ctx.pid, address, int(variable.baseType.byteSize))
 
 	// fmt.Printf("raw value from ptrace: %v, mem-file: %v\n", rawValue, memRawValue)
 
-	logger.Info("got raw value of variable %s: %v", varName, rawValue)
+	logger.Debug("got raw value of variable %s: %v", varName, rawValue)
 
 	return convertValueToType(rawValue, variable.baseType)
 }

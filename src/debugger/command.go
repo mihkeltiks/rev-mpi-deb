@@ -1,12 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
-
-	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 type command struct {
@@ -14,11 +12,29 @@ type command struct {
 	argument interface{}
 }
 
+func (c command) String() string {
+	codeStr := map[commandCode]string{
+		bpoint:        "breakpoint",
+		singleStep:    "single-singleStep",
+		cont:          "continue",
+		restore:       "restore",
+		print:         "print",
+		help:          "help",
+		printInternal: "printInternal",
+	}[c.code]
+
+	if c.argument == nil {
+		return fmt.Sprintf("{%v}", codeStr)
+	} else {
+		return fmt.Sprintf("{%v,%v}", codeStr, c.argument)
+	}
+}
+
 type commandCode int
 
 const (
 	bpoint commandCode = iota
-	step
+	singleStep
 	cont
 	restore
 	print
@@ -32,71 +48,8 @@ type cmdResult struct {
 	exited bool
 }
 
-var currentRegs *syscall.PtraceRegs
-
-func (cmd *command) handle(ctx *processContext) *cmdResult {
-	var err error
-	var exited bool
-
-	switch cmd.code {
-	case bpoint:
-		err = setBreakPoint(ctx, ctx.sourceFile, cmd.argument.(int))
-	case step:
-		singleStep(ctx)
-	case cont:
-		exited = continueExecution(ctx)
-	case restore:
-		cpIndex := len(ctx.cpointData) - (1 + cmd.argument.(int))
-
-		restoreCheckpoint(ctx, cpIndex)
-	case print:
-		printVariable(ctx, cmd.argument.(string))
-	case quit:
-		quitDebugger()
-	case help:
-		printInstructions()
-	case printInternal:
-		printInternalData(ctx, cmd.argument.(string))
-	}
-
-	if cmd.isProgressCommand() {
-		for {
-
-			printInternalData(ctx, "loc")
-
-			bpoint, regs := restoreCaughtBreakpoint(ctx)
-
-			if bpoint == nil {
-				break
-			}
-
-			if bpoint.isMPIBpoint {
-				syscall.PtraceSetRegs(ctx.pid, regs)
-
-				recordMPIOperation(ctx, bpoint)
-
-				reinsertMPIBPoints(ctx, bpoint)
-			} else {
-				logger.Info("stack: %v", getStack(ctx, bpoint))
-			}
-
-			if !bpoint.isMPIBpoint {
-				break
-			}
-
-			exited = continueExecution(ctx)
-
-			if exited {
-				break
-			}
-		}
-	}
-
-	return &cmdResult{err, exited}
-}
-
 func (cmd *command) isProgressCommand() bool {
-	return cmd.code == step || cmd.code == cont
+	return cmd.code == singleStep || cmd.code == cont
 }
 
 func parseCommandFromString(input string) (c *command) {
@@ -117,7 +70,7 @@ func parseCommandFromString(input string) (c *command) {
 		return &command{cont, nil}
 
 	case input == "s":
-		return &command{step, nil}
+		return &command{singleStep, nil}
 
 	case printRegexp.Match([]byte(input)):
 		varName := strings.Split(input, " ")[1]
