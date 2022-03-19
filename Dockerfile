@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1
-FROM golang
+FROM okmartens/golang-mpi
 
 WORKDIR /app
 
 COPY . .
 
-RUN  cd src && go build -o ../bin/debug
+# RUN  make compiler
+# RUN  make
+
+# RUN bin/compiler examples/hello.c
 
 ENTRYPOINT [ "./bin/debug" ]
