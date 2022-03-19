@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+const SLEEP_MS = 300
+
+var runInDocker = false
+
 func main() {
 	RUN_COUNT := 10
 
@@ -18,18 +22,39 @@ func main() {
 		RUN_COUNT, _ = strconv.Atoi(os.Args[1])
 	}
 
+	if len(os.Args) > 2 {
+		if os.Args[2] == "docker" {
+			runInDocker = true
+		}
+	}
+
+	if runInDocker {
+		fmt.Println("running in docker")
+	} else {
+		fmt.Println("running natively")
+	}
+
 	for i := 0; i < RUN_COUNT; i++ {
 		fmt.Println("<< new run >>")
-		cmd := exec.Command(
-			"docker",
-			"run",
-			"--rm",
-			"-i",
-			"--cap-add=SYS_PTRACE",
-			"--security-opt",
-			"seccomp=unconfined",
-			"mpi-debugger",
-			"hello")
+
+		var cmd *exec.Cmd
+
+		if runInDocker {
+			cmd = exec.Command(
+				"docker",
+				"run",
+				"--rm",
+				"-i",
+				"--cap-add=SYS_PTRACE",
+				"--security-opt",
+				"seccomp=unconfined",
+				"mpi-debugger",
+				"hello")
+		} else {
+			cmd = exec.Command(
+				"bin/debug",
+				"hello")
+		}
 
 		stdin, err := cmd.StdinPipe()
 
@@ -42,25 +67,25 @@ func main() {
 
 		cmd.Start()
 
-		time.Sleep(time.Millisecond * 400)
+		wait()
 
 		io.WriteString(stdin, "b 26\n")
-		time.Sleep(time.Millisecond * 200)
+		wait()
 
 		io.WriteString(stdin, "c\n")
-		time.Sleep(time.Millisecond * 100)
+		wait()
 
 		io.WriteString(stdin, "p global\n")
-		time.Sleep(time.Millisecond * 100)
+		wait()
 
 		io.WriteString(stdin, "r\n")
-		time.Sleep(time.Millisecond * 300)
+		wait()
 
 		io.WriteString(stdin, "p global\n")
-		time.Sleep(time.Millisecond * 100)
+		wait()
 
 		io.WriteString(stdin, "c\n")
-		time.Sleep(time.Millisecond * 100)
+		wait()
 
 		io.WriteString(stdin, "c\n")
 
@@ -76,4 +101,8 @@ func main() {
 
 	fmt.Printf("failed %d times\n", failCount)
 
+}
+
+func wait() {
+	time.Sleep(time.Millisecond * SLEEP_MS)
 }
