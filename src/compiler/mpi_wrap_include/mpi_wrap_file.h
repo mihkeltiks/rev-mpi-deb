@@ -50,15 +50,13 @@ int _MPI_Finalize()
 int _MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
               int tag, MPI_Comm comm)
 {
-    int code = MPI_Send(buf, count, datatype, dest, tag, comm);
     _MPI_WRAPPER_RECORD(buf, count, datatype, -1, dest, tag, comm, NULL);
-    return code;
+    return MPI_Send(buf, count, datatype, dest, tag, comm);
 }
 
 int _MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source,
               int tag, MPI_Comm comm, MPI_Status *status)
 {
-    int code = MPI_Recv(buf, count, datatype, source, tag, comm, status);
     _MPI_WRAPPER_RECORD(buf, count, datatype, source, -1, tag, comm, status);
-    return code;
+    return MPI_Recv(buf, count, datatype, source, tag, comm, status);
 }
