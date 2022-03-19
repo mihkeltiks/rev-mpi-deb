@@ -52,22 +52,17 @@ make docker
 
 ## Compiling programs for the debugger
 
-
-
+There is a compiler included that wraps the mpi library calls, in order to enable the debugger to intercept and record them.
 The target program needs to be compliled for linux and x86 architecture, and include debugging information
 
-### for c programs:
+### 1. build the compiler
 ```bash
-gcc -g -no-pie ...
-```
-The `-no-pie` will disable Adress Space Layout Randomization.
-
-### MPI (c) programs
-```bash
-mpicc -g -no-pie ...
+make compiler
 ```
 
-### for go programs:
+### 2. compile your program:
 ```bash
-go build --gcflags="all=-N -l" ...
+.bin/compiler <path-to-source-file>
 ```
+The compiled binary will be written to `./bin/target/{source-file-name}`. This path should be given to the debugger as input 
+
