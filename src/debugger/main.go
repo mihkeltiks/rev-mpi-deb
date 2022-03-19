@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"reflect"
 	"syscall"
@@ -52,20 +51,6 @@ func main() {
 
 	// printInstructions()
 
-	// time.Sleep(time.Millisecond * 500)
-
-	// (&command{bpoint, 26}).handle(ctx)
-
-	// (&command{cont, nil}).handle(ctx)
-	// time.Sleep(time.Millisecond * 100)
-	// (&command{restore, 0}).handle(ctx)
-
-	// time.Sleep(time.Millisecond * 500)
-	// (&command{cont, nil}).handle(ctx)
-
-	// time.Sleep(time.Millisecond * 500)
-	// (&command{cont, nil}).handle(ctx)
-
 	for {
 		cmd := askForInput()
 
@@ -89,22 +74,12 @@ func startBinary(target string) *exec.Cmd {
 		Ptrace: true,
 	}
 
-	// handle termination of child on exit
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt)
-	go func() {
-		<-c
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
-		os.Exit(1)
-	}()
-
 	cmd.Start()
 	err := cmd.Wait()
 
 	if err != nil {
 		// arrived at auto-inserted initial breakpoint trap
+		logger.Debug("child: %v", err)
 		logger.Info("binary started, waiting for command")
 	}
 
@@ -121,7 +96,7 @@ func getSourceFileInfo(d *dwarfData) (sourceFile string) {
 }
 
 func logRegistersState(ctx *processContext) {
-	regs := getRegs(ctx, false)
+	regs, _ := getRegs(ctx, false)
 
 	line, fileName, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
 
@@ -132,13 +107,15 @@ func logRegistersState(ctx *processContext) {
 	// logger.Debug("ip pointing to: %v\n", data)
 }
 
-func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
+func getRegs(ctx *processContext, rewindIP bool) (*syscall.PtraceRegs, error) {
 	var regs syscall.PtraceRegs
 
 	err := syscall.PtraceGetRegs(ctx.pid, &regs)
 
 	if err != nil {
-		logger.Warn("error getting registers")
+		logger.Warn("error getting registers: %v", err)
+
+		return nil, err
 	}
 
 	// if err != nil {
@@ -167,11 +144,12 @@ func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
 		regs.Rip -= 1
 	}
 
-	return &regs
+	return &regs, nil
 }
 
 func printRegs(ctx *processContext) {
-	regs := getRegs(ctx, false)
+	regs, err := getRegs(ctx, false)
+	must(err)
 
 	s := reflect.ValueOf(regs).Elem()
 	typeOfT := s.Type()

@@ -111,10 +111,9 @@ func restoreCheckpoint(ctx *processContext, cpIndex int) {
 func restoreFileCheckpoint(ctx *processContext, checkpoint cPoint) {
 	logger.Debug("restoring memory state: %v (file: %v) ", checkpoint.opName, checkpoint.file)
 
-	checkpoint = readMemoryContentsFromFile(checkpoint)
+	readMemoryContentsFromFile(checkpoint)
 
 	err := proc.WriteRegionsContentsToMemFile(ctx.pid, checkpoint.regions)
-
 	must(err)
 }
 
@@ -143,9 +142,8 @@ func restoreForkCheckpoint(ctx *processContext, checkpoint cPoint) {
 }
 
 func createFileCheckpoint(ctx *processContext, opName string) cPoint {
-	regs := getRegs(ctx, false)
-
-	logger.Debug("regs at checkpoint creation, %+v", regs)
+	regs, err := getRegs(ctx, false)
+	must(err)
 
 	checkpointFile, err := os.CreateTemp("bin/temp", fmt.Sprintf("%v-cp-*", filepath.Base(ctx.targetFile)))
 
@@ -167,15 +165,19 @@ func createFileCheckpoint(ctx *processContext, opName string) cPoint {
 }
 
 func createForkCheckpoint(ctx *processContext, opName string) cPoint {
+	regs, err := getRegs(ctx, false)
+	must(err)
+
+	stackMemRegions := proc.GetStackDataAddresses(ctx.pid)
+
 	checkpoint := cPoint{
 		pid:          int(getVariableFromMemory(ctx, "_MPI_CHECKPOINT_CHILD").(int32)),
 		opName:       opName,
-		regs:         getRegs(ctx, false),
-		stackRegions: proc.GetStackDataAddresses(ctx.pid),
+		regs:         regs,
+		stackRegions: stackMemRegions,
+		stackRawData: proc.ReadFromMemFileByRegions(ctx.pid, stackMemRegions),
 		bpoints:      make(breakpointData),
 	}
-
-	checkpoint.stackRawData = proc.ReadFromMemFileByRegions(ctx.pid, checkpoint.stackRegions)
 
 	return checkpoint
 }
@@ -192,7 +194,7 @@ func writeCheckpointToFile(ctx *processContext, file *os.File, regions []proc.Me
 	file.Close()
 }
 
-func readMemoryContentsFromFile(checkpoint cPoint) cPoint {
+func readMemoryContentsFromFile(checkpoint cPoint) {
 
 	file, err := os.Open(checkpoint.file)
 	must(err)
@@ -208,6 +210,4 @@ func readMemoryContentsFromFile(checkpoint cPoint) cPoint {
 
 		checkpoint.regions[index].Contents = buffer
 	}
-
-	return checkpoint
 }

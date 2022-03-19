@@ -51,7 +51,6 @@ func insertBreakpoint(ctx *processContext, breakpointAddress uint64) (originalIn
 
 	// set breakpoint (insert interrupt code at the address)
 	_, err = syscall.PtracePokeData(ctx.pid, uintptr(breakpointAddress), interruptCode)
-
 	must(err)
 
 	return originalInstruction
@@ -69,15 +68,10 @@ func getOriginalInstruction(ctx *processContext, address uint64) (originalInstru
 
 // restores the original instruction if the executable is currently caught at a breakpoint
 func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, registers *syscall.PtraceRegs) {
-	regs := getRegs(ctx, true)
-
-	if regs == nil {
-		continueExecution(ctx, false)
-		regs = getRegs(ctx, true)
-	}
+	regs, err := getRegs(ctx, true)
+	must(err)
 
 	// line, file, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)
-
 	// logger.Debug("looking to restore bpoint at %#x (line %d in %s, func: %v)", regs.Rip, line, filepath.Base(file), fn.Name())
 
 	bpoint := findBreakpointByAddress(ctx, regs.Rip)
@@ -94,13 +88,13 @@ func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, regi
 		logger.Debug("Caught at a breakpoint: line: %d, file: %v", line, filepath.Base(file))
 	}
 
-	// logger.Debug("original data: %v", bpoint.originalInstruction)
-
 	// replace the break instruction with the original instruction
-	syscall.PtracePokeData(ctx.pid, uintptr(regs.Rip), bpoint.originalInstruction)
+	_, err = syscall.PtracePokeData(ctx.pid, uintptr(regs.Rip), bpoint.originalInstruction)
+	must(err)
 
 	// set the rewinded instruction pointer
-	syscall.PtraceSetRegs(ctx.pid, regs)
+	err = syscall.PtraceSetRegs(ctx.pid, regs)
+	must(err)
 
 	// remove record of breakpoint
 	delete(ctx.bpointData, bpoint.address)

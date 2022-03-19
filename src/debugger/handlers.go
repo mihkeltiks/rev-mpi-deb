@@ -100,15 +100,15 @@ func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 	var waitStatus syscall.WaitStatus
 
-	if singleStep {
-		err := syscall.PtraceSingleStep(ctx.pid)
-		must(err)
-	} else {
-		err := syscall.PtraceCont(ctx.pid, 0)
-		must(err)
-	}
-
 	for i := 0; i < 100; i++ {
+
+		if singleStep {
+			err := syscall.PtraceSingleStep(ctx.pid)
+			must(err)
+		} else {
+			err := syscall.PtraceCont(ctx.pid, 0)
+			must(err)
+		}
 
 		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)
 
@@ -118,7 +118,7 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 		}
 
 		if waitStatus.StopSignal() == syscall.SIGTRAP && waitStatus.TrapCause() != syscall.PTRACE_EVENT_CLONE {
-			logger.Debug("binary hit trap, execution paused (trap cause: %v)", waitStatus.TrapCause())
+			logger.Debug("binary hit trap, execution paused (wait status: %v, trap cause: %v)", waitStatus, waitStatus.TrapCause())
 			return false
 		}
 		// else {
@@ -208,7 +208,7 @@ func printInternalData(ctx *processContext, varName string) {
 		logger.Info("proc/id/maps:")
 		proc.LogMapsFile(ctx.pid)
 	case "loc":
-		regs := getRegs(ctx, false)
+		regs, _ := getRegs(ctx, false)
 		line, fileName, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)
 		logger.Info("currently at line %v in %v (func %v) ip:%#x", line, filepath.Base(fileName), fn.Name(), regs.Rip)
 	case "cp":

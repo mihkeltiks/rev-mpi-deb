@@ -1,5 +1,7 @@
 package main
 
+//lint:file-ignore U1000 ignore unused helpers
+
 import (
 	"encoding/binary"
 	"fmt"
@@ -25,7 +27,8 @@ func (stack functionStack) String() string {
 
 func getStack(ctx *processContext, bpoint *bpointData) functionStack {
 
-	regs := getRegs(ctx, false)
+	regs, err := getRegs(ctx, false)
+	must(err)
 
 	stackPointer := regs.Rsp
 	basePointer := regs.Rbp

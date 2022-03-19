@@ -62,8 +62,8 @@ func removeTempFiles() {
 
 }
 
-// prevent the thread from sleeping
-// (contrary to time.Sleep() which can cause issues with ptrace)
+// wait while preventing the thread from sleeping
+// (contrary to time.Sleep() which causes issues with ptrace)
 func waitWithoutSleep(d time.Duration) {
 	start := time.Now().UnixNano()
 	logger.Warn("starting wait")
