@@ -35,13 +35,13 @@ MPI debugging is not yet supported with this configuration
 the compiled target binary should be moved into the source folder before building the docker image
 
 ```bash
-# in the root directory
-docker build -t debug .
+# in the project root directory
+make docker
 ```
 ### run
 ```bash
 # the path to binary should be relative to the root directory of the project
-docker run --rm -i debug <path-to-target-binary>
+./runInDocker.sh <path-to-target-binary>
 ```
 
 --- 
