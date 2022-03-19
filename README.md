@@ -53,7 +53,6 @@ make docker
 ## Compiling programs for the debugger
 
 There is a compiler included that wraps the mpi library calls, in order to enable the debugger to intercept and record them.
-The target program needs to be compliled for linux and x86 architecture, and include debugging information
 
 ### 1. build the compiler
 ```bash
