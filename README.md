@@ -14,12 +14,6 @@ currently only x86_64 architecture is supported
 make
 ```
 ### run
-**regular binaries**
-```sh
-./bin/debug <path-to-target-binary>
-```
-
-**mpi**
 ```sh
 mpirun -n <> xterm -e ./bin/debug <path-to-target-binary>
 ```
