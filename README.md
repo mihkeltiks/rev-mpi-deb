@@ -28,7 +28,7 @@ mpirun -n <> xterm -e ./bin/debug <path-to-target-binary>
 
 
 ## Other platforms (use Docker)
-MPI debugging is not yet supported with this configuration
+Running only single-node MPI applications is supported with this configuration as of now.
 
 ### build
 
