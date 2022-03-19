@@ -2,6 +2,8 @@ package dwarf
 
 //lint:file-ignore U1000 ignore unused helpers
 
+// from delve debugger
+
 import (
 	"bytes"
 	"encoding/binary"
