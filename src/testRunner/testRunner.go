@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strconv"
 	"time"
+
+	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 const SLEEP_MS = 300
@@ -29,13 +31,13 @@ func main() {
 	}
 
 	if runInDocker {
-		fmt.Println("running in docker")
+		logger.Info("running in docker")
 	} else {
-		fmt.Println("running natively")
+		logger.Info("running natively")
 	}
 
 	for i := 0; i < RUN_COUNT; i++ {
-		fmt.Println("<< new run >>")
+		logger.Info("<< new run >>")
 
 		var cmd *exec.Cmd
 
@@ -95,7 +97,7 @@ func main() {
 			fmt.Printf("%vexit error: %v%v\n", "\033[31m", err, "\033[0m")
 			failCount++
 		} else {
-			fmt.Println("exit code 0")
+			logger.Info("exit code 0")
 		}
 	}
 
