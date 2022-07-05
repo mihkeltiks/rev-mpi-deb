@@ -84,14 +84,8 @@ func PrintPSInfo(pid int) {
 	cmd.Stderr = os.Stderr
 
 	err := cmd.Start()
-	if err != nil {
-		panic(err)
-	}
+	must(err)
 
 	err = cmd.Wait()
-
-	if err != nil {
-		panic(err)
-	}
-
+	must(err)
 }

@@ -81,28 +81,39 @@ func log(level LoggingLevel, str string, args ...interface{}) {
 	message := fmt.Sprintf(str, args...)
 
 	if remoteClient == nil {
-		logRow(level, message)
+		logRow(level, message, nil)
 	} else {
 		logRemotely(level, message)
 	}
 
 }
 
-func logRow(level LoggingLevel, message string) {
-
+func logRow(level LoggingLevel, message string, id *int) {
 	if level > maxLogLevel {
 		return
 	}
 
-	fmt.Print(colorMap[level])
-	fmt.Print(timeString())
+	if id == nil {
+		fmt.Printf("%s%s %s %s\n", colorMap[level], timeString(), message, reset)
+	} else {
+		fmt.Printf("%s%s %s -%s %s%s\n", colorMap[level], timeString(), prettyPrintId(*id), colorMap[level], message, reset)
+	}
 
-	fmt.Printf(message)
-	fmt.Println(reset)
 }
 
 func timeString() string {
 	hour, min, sec := time.Now().Clock()
 
-	return fmt.Sprintf("%02d:%02d:%02d  ", hour, min, sec)
+	return fmt.Sprintf("%02d:%02d:%02d", hour, min, sec)
+}
+
+func prettyPrintId(id int) string {
+	if id > 10 {
+		return fmt.Sprint(id)
+	}
+
+	bold := "\033[1m"
+	bg := "\033[38;5;226m"
+
+	return fmt.Sprintf("%s%s%d%s", bold, bg, id, reset)
 }

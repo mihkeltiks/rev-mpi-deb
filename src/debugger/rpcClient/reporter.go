@@ -4,10 +4,13 @@ import (
 	"os"
 )
 
-func reportAsHealthy() {
-	err := remoteClient.Call("Registrator.Register", os.Getpid(), new(int))
+func reportAsHealthy() int {
+	var nodeId int
+	err := remoteClient.Call("Registrator.Register", os.Getpid(), &nodeId)
 
 	if err != nil {
 		panic(err)
 	}
+
+	return nodeId
 }

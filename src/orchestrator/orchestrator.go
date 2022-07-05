@@ -84,9 +84,3 @@ func panicArgs() {
 	fmt.Println("usage: orchestrator <num_processes> <target_file>")
 	os.Exit(2)
 }
-
-func must(err error) {
-	if err != nil {
-		panic(err)
-	}
-}

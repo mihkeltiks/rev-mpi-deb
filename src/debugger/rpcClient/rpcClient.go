@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"net/rpc"
 	"net/url"
+	"os"
 
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 var remoteClient *rpc.Client
+
+var nodeId int = -1
 
 func Connect(serverUrl *url.URL) {
 
@@ -22,7 +25,8 @@ func Connect(serverUrl *url.URL) {
 	remoteClient = client
 
 	logger.SetRemoteClient(client)
+	nodeId = reportAsHealthy()
 
-	reportAsHealthy()
-	logger.Info("Process registered")
+	logger.SetNodeId(nodeId)
+	logger.Info("Process (id: %d) registered", os.Getpid())
 }

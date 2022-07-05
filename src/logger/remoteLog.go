@@ -1,12 +1,11 @@
 package logger
 
 import (
-	"fmt"
 	"net/rpc"
-	"os"
 )
 
 var remoteClient *rpc.Client
+var nodeId int
 
 // client
 
@@ -14,11 +13,15 @@ func SetRemoteClient(client *rpc.Client) {
 	remoteClient = client
 }
 
+func SetNodeId(id int) {
+	nodeId = id
+}
+
 func logRemotely(level LoggingLevel, message string) {
 	var reply int
 
 	args := RemoteLogArgs{
-		os.Getpid(),
+		nodeId,
 		level,
 		message,
 	}
@@ -40,9 +43,7 @@ type RemoteLogArgs struct {
 }
 
 func (r *LoggerServer) LogRow(args RemoteLogArgs, reply *int) error {
-	message := fmt.Sprintf("%d - %v", args.Pid, args.Message)
-
-	logRow(args.Level, message)
+	logRow(args.Level, args.Message, &args.Pid)
 
 	return nil
 }
