@@ -3,8 +3,10 @@ package main
 //lint:file-ignore U1000 ignore unused helpers
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"time"
 	"unsafe"
@@ -16,7 +18,7 @@ type fn func()
 
 func must(err error) {
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("process %d - %v", os.Getpid(), err))
 	}
 }
 
@@ -72,4 +74,24 @@ func waitWithoutSleep(d time.Duration) {
 		}
 	}
 	logger.Warn("ended wait")
+}
+
+func PrintPSInfo(pid int) {
+
+	cmd := exec.Command("ps", "-Flww", "-p", fmt.Sprint(pid))
+
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	err = cmd.Wait()
+
+	if err != nil {
+		panic(err)
+	}
+
 }

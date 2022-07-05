@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/dwarf"
+	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 

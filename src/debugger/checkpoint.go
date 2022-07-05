@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/ottmartens/cc-rev-db/debugger/proc"
 	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/proc"
 )
 
 type CheckpointMode int
@@ -41,12 +41,12 @@ func (c checkpointData) New() checkpointData {
 }
 
 func (cp cPoint) String() string {
-	return fmt.Sprintf("cp{pid:%d, opName: %s}", cp.pid, cp.opName)
+	return fmt.Sprintf("cp{opName: %s}", cp.opName)
 }
 
 func createCheckpoint(ctx *processContext, opName string) {
 
-	logger.Info("creating new checkpoint (%v)", opName)
+	logger.Verbose("creating new checkpoint (%v)", opName)
 
 	var checkpoint cPoint
 

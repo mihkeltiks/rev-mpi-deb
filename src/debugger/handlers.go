@@ -8,9 +8,9 @@ import (
 	"syscall"
 
 	"github.com/go-delve/delve/pkg/dwarf/op"
-	"github.com/ottmartens/cc-rev-db/dwarf"
+	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
+	"github.com/ottmartens/cc-rev-db/debugger/proc"
 	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/proc"
 )
 
 func (cmd *command) handle(ctx *processContext) *cmdResult {
@@ -55,13 +55,9 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 			}
 
 			if bpoint.isMPIBpoint {
-
 				recordMPIOperation(ctx, bpoint)
 
 				reinsertMPIBPoints(ctx, bpoint)
-			} else {
-
-				printInternalData(ctx, "loc")
 			}
 
 			if !bpoint.isMPIBpoint || cmd.code == singleStep {
@@ -114,7 +110,7 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)
 
 		if waitStatus.Exited() {
-			logger.Debug("The binary exited with code %v", waitStatus.ExitStatus())
+			logger.Verbose("The binary exited with code %v", waitStatus.ExitStatus())
 			return true
 		}
 
@@ -162,8 +158,8 @@ func getVariableFromMemory(ctx *processContext, varName string) (value interface
 
 	rawValue := peekDataFromMemory(ctx, address, variable.ByteSize())
 
-	logger.Info("location of variable: %#x", address)
-	logger.Info("raw value of variable: %v", rawValue)
+	logger.Debug("location of variable: %#x", address)
+	logger.Debug("raw value of variable: %v", rawValue)
 	// memRawValue := proc.ReadFromMemFile(ctx.pid, address, int(variable.baseType.byteSize))
 
 	// fmt.Printf("raw value from ptrace: %v, mem-file: %v\n", rawValue, memRawValue)

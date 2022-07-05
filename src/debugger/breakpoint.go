@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/dwarf"
+	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
@@ -86,7 +86,7 @@ func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, regi
 		logger.Debug("Caught auto-inserted MPI breakpoint, func: %v", bpoint.function.Name())
 	} else {
 		line, file, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
-		logger.Debug("Caught at a breakpoint: line: %d, file: %v", line, filepath.Base(file))
+		logger.Info("Caught at a breakpoint: line: %d, file: %v", line, filepath.Base(file))
 	}
 
 	// replace the break instruction with the original instruction
