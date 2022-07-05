@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ottmartens/cc-rev-db/dwarf"
+	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
@@ -111,7 +111,9 @@ func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
 
 	opName := bpoint.function.Name()
 
-	logger.Debug("\trecording mpi operation %v", opName)
+	if opName != MPI_FUNCS.RECORD {
+		logger.Verbose("recording mpi operation %v", opName)
+	}
 
 	if opName == MPI_FUNCS.RECORD && !bpoint.isImmediateAfterRestore {
 		createCheckpoint(ctx, currentMPIFunc.function.Name())
