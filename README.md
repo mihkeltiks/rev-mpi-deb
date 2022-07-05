@@ -11,11 +11,11 @@ currently only x86_64 architecture is supported
 
 ### build
 ```bash
-make
+make && make orchestrator
 ```
 ### run
 ```sh
-mpirun -n <> xterm -e ./bin/debug <path-to-target-binary>
+bin/orchestror <num_processes> <path-to-target-mpi-binary>
 ```
 
 
@@ -35,7 +35,7 @@ make docker
 ### run
 ```bash
 # the path to binary should be relative to the root directory of the project
-./runInDocker.sh <path-to-target-binary>
+./runInDocker.sh bin/orcherstrator <num_processes> <path-to-target-binary>
 ```
 
 --- 
