@@ -4,22 +4,27 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strconv"
+	"time"
 
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/rpc"
 )
 
 const DEBUGGER_PATH = "bin/debug"
-
-const ORCHESTRATOR_PORT = 3500
+const ORCHESTRATOR_PORT = 3490
 
 func main() {
-	logger.SetMaxLogLevel(logger.Levels.Debug)
+	// logger.SetMaxLogLevel(logger.Levels.Verbose)
 
 	numProcesses, targetPath := parseArgs()
 
-	initRPCServer(ORCHESTRATOR_PORT)
+	// start rpc server in separate goroutine
+	go func() {
+		rpc.InitializeServer(ORCHESTRATOR_PORT, func(register rpc.Registrator) {
+			register(new(logger.LoggerServer))
+			register(new(NodeReporter))
+		})
+	}()
 
 	logger.Info("executing %v as an mpi job with %d processes", targetPath, numProcesses)
 
@@ -32,17 +37,26 @@ func main() {
 		fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
 	)
 
-	cmd.Stdout = os.Stdout
+	// cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	err := cmd.Start()
 	must(err)
 
-	err = cmd.Wait()
+	go func() {
+		cmd.Wait()
 
-	if err != nil {
-		logger.Error("mpi job exited with: %v", err)
-	}
+		if err != nil {
+			logger.Error("mpi job exited with: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	// wait for nodes to finish startup sequence
+	time.Sleep(time.Second)
+	heartbeatAllNodes()
+	time.Sleep(time.Second)
+	heartbeatAllNodes()
 
 	for {
 		cmd := askForInput()
@@ -54,33 +68,4 @@ func main() {
 
 		logger.Info("command: %v", cmd)
 	}
-}
-
-func parseArgs() (numProcesses int, targetPath string) {
-	if len(os.Args) > 3 {
-		panicArgs()
-	}
-
-	numProcesses, err := strconv.Atoi(os.Args[1])
-
-	if err != nil || numProcesses < 1 {
-		panicArgs()
-	}
-
-	targetPath = os.Args[2]
-
-	file, err := os.Stat(os.Args[2])
-	must(err)
-	if file.IsDir() {
-		panicArgs()
-	}
-
-	filepath.EvalSymlinks(targetPath)
-
-	return numProcesses, targetPath
-}
-
-func panicArgs() {
-	fmt.Println("usage: orchestrator <num_processes> <target_file>")
-	os.Exit(2)
 }

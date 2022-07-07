@@ -11,14 +11,15 @@ import (
 	"time"
 
 	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
-	rpcclient "github.com/ottmartens/cc-rev-db/debugger/rpcClient"
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/rpc"
 )
 
 const MAIN_FN = "main"
 
-var CLI_MODE = false
-var ORCHESTRATOR_ADDRESS string
+var cliMode = false
+var orchestratorAddress string
+var nodeId int
 
 type processContext struct {
 	targetFile     string           // the executing binary file
@@ -46,8 +47,15 @@ func main() {
 		cpointData:     checkpointData{}.New(),
 	}
 
-	// connect to orchestrator
-	rpcclient.Connect(orchestratorAddress)
+	if !cliMode {
+		// connect to orchestrator
+		rpc.Client.Connect(orchestratorAddress)
+
+		nodeId = rpc.Client.ReportAsHealthy()
+		logger.SetSendRemoteLog(rpc.Client.SendLog, nodeId)
+
+		logger.Info("Process (pid: %d) registered", os.Getpid())
+	}
 
 	// parse debugging data
 	ctx.dwarfData = dwarf.ParseDwarfData(ctx.targetFile)
@@ -61,18 +69,24 @@ func main() {
 	// set up automatic breakpoints
 	insertMPIBreakpoints(ctx)
 
-	if CLI_MODE {
+	if cliMode {
 		handleCLIWorkflow(ctx)
 	} else {
 		handleRemoteWorkflow(ctx)
 	}
 
+	logger.Info("False")
 	runtime.UnlockOSThread()
 }
 
 func handleRemoteWorkflow(ctx *processContext) {
 	logger.Verbose("Registering debugging methods for remote use")
 
+	port := 3500 + nodeId
+
+	rpc.InitializeServer(port, func(register rpc.Registrator) {
+		logger.Info("registering smthing")
+	})
 }
 
 func handleCLIWorkflow(ctx *processContext) {

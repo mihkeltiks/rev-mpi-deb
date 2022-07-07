@@ -94,7 +94,7 @@ func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, 
 	// }
 
 	if os.Args[2] == "cli" {
-		CLI_MODE = true
+		cliMode = true
 	} else {
 		orchestratorAddress, err = url.ParseRequestURI(os.Args[2])
 

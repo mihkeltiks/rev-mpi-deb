@@ -1,31 +1,21 @@
 package logger
 
-import (
-	"net/rpc"
-)
-
-var remoteClient *rpc.Client
+var sendRemoteLog func(args *RemoteLogArgs) error
 var nodeId int
 
 // client
 
-func SetRemoteClient(client *rpc.Client) {
-	remoteClient = client
-}
-
-func SetNodeId(id int) {
-	nodeId = id
+func SetSendRemoteLog(sendLog func(args *RemoteLogArgs) error, _nodeId int) {
+	sendRemoteLog = sendLog
+	nodeId = _nodeId
 }
 
 func logRemotely(level LoggingLevel, message string) {
-	var reply int
-
-	args := RemoteLogArgs{
+	err := sendRemoteLog(&RemoteLogArgs{
 		nodeId,
 		level,
 		message,
-	}
-	err := remoteClient.Call("LoggerServer.LogRow", &args, &reply)
+	})
 
 	if err != nil {
 		panic(err)
@@ -42,7 +32,7 @@ type RemoteLogArgs struct {
 	Message string
 }
 
-func (r *LoggerServer) LogRow(args RemoteLogArgs, reply *int) error {
+func (r *LoggerServer) Log(args RemoteLogArgs, reply *int) error {
 	logRow(args.Level, args.Message, &args.Pid)
 
 	return nil
