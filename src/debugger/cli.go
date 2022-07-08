@@ -7,12 +7,15 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
+	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
-func askForInput() *command {
+func askForInput() *command.Command {
 	printPrompt()
 
 	userInput := getUserInputLine()
@@ -62,7 +65,7 @@ func printInstructions() {
 func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, orchestratorAddress *url.URL) {
 
 	if len(os.Args) < 3 {
-		panicArgs()
+		printUsage()
 	}
 
 	var err error
@@ -100,16 +103,67 @@ func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, 
 
 		if err != nil {
 			os.Stderr.WriteString(err.Error())
-			panicArgs()
+			printUsage()
 		}
 	}
 
 	return targetFilePath, fileMode, orchestratorAddress
 }
 
-func panicArgs() {
+func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("cli mode: debug <target binary> cli")
 	fmt.Println("network mode: debug <target binary> <orchestrator address>")
 	os.Exit(2)
+}
+
+func parseCommandFromString(input string) (c *command.Command) {
+
+	breakPointRegexp := regexp.MustCompile(`^b \d+$`)
+	printRegexp := regexp.MustCompile(`^p [a-zA-Z_][a-zA-Z0-9_]*$`)
+	printInternalRegexp := regexp.MustCompile(`^pd [a-zA-Z_][a-zA-Z0-9_]*$`)
+
+	restoreRegexp := regexp.MustCompile(`^r\s*[0-9]*$`)
+
+	switch {
+	case breakPointRegexp.Match([]byte(input)):
+		lineNr, _ := strconv.Atoi(strings.Split(input, " ")[1])
+
+		return &command.Command{Code: command.Bpoint, Argument: lineNr}
+
+	case input == "c":
+		return &command.Command{Code: command.Cont, Argument: nil}
+
+	case input == "s":
+		return &command.Command{Code: command.SingleStep, Argument: nil}
+
+	case printRegexp.Match([]byte(input)):
+		varName := strings.Split(input, " ")[1]
+
+		return &command.Command{Code: command.Print, Argument: varName}
+
+	case input == "q":
+		return &command.Command{Code: command.Quit, Argument: nil}
+
+	case restoreRegexp.Match([]byte(input)):
+		split := strings.Split(input, " ")
+
+		index := 0
+		if len(split) > 1 {
+			index, _ = strconv.Atoi(split[1])
+		}
+
+		return &command.Command{Code: command.Restore, Argument: index}
+
+	case input == "help":
+		return &command.Command{Code: command.Help, Argument: nil}
+
+	case printInternalRegexp.Match([]byte(input)):
+		varName := strings.Split(input, " ")[1]
+
+		return &command.Command{Code: command.PrintInternal, Argument: varName}
+
+	default:
+		return nil
+	}
 }

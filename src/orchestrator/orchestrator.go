@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/rpc"
 )
@@ -28,7 +29,7 @@ func main() {
 
 	logger.Info("executing %v as an mpi job with %d processes", targetPath, numProcesses)
 
-	cmd := exec.Command(
+	mpiProcess := exec.Command(
 		"mpirun",
 		"-np",
 		fmt.Sprintf("%d", numProcesses),
@@ -37,14 +38,14 @@ func main() {
 		fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
 	)
 
-	// cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	mpiProcess.Stdout = os.Stdout
+	mpiProcess.Stderr = os.Stderr
 
-	err := cmd.Start()
+	err := mpiProcess.Start()
 	must(err)
 
 	go func() {
-		cmd.Wait()
+		mpiProcess.Wait()
 
 		if err != nil {
 			logger.Error("mpi job exited with: %v", err)
@@ -54,18 +55,25 @@ func main() {
 
 	// wait for nodes to finish startup sequence
 	time.Sleep(time.Second)
-	heartbeatAllNodes()
-	time.Sleep(time.Second)
-	heartbeatAllNodes()
+	connectToAllNodes(numProcesses)
 
+	defer stopAllNodes()
+
+	// handleRemotely(&command.Command{NodeId: 0, Code: command.Bpoint, Argument: 19})
+
+	printInstructions()
 	for {
 		cmd := askForInput()
 
-		if cmd.code == quit {
-			logger.Info("🌊 exiting")
-			os.Exit(0)
+		switch cmd.Code {
+		case command.Quit:
+			logger.Info("👋 exiting")
+			return
+		case command.Help:
+			printInstructions()
+		default:
+			handleRemotely(cmd)
+			time.Sleep(time.Second)
 		}
-
-		logger.Info("command: %v", cmd)
 	}
 }

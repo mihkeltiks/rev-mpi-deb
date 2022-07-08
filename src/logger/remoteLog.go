@@ -1,21 +1,25 @@
 package logger
 
-var sendRemoteLog func(args *RemoteLogArgs) error
-var nodeId int
-
 // client
 
-func SetSendRemoteLog(sendLog func(args *RemoteLogArgs) error, _nodeId int) {
-	sendRemoteLog = sendLog
+var remoteLoggerClient RemoteLoggerClient
+var nodeId int
+
+type RemoteLoggerClient interface {
+	Call(methodName string, args any, reply any) error
+}
+
+func SetRemoteClient(client RemoteLoggerClient, _nodeId int) {
+	remoteLoggerClient = client
 	nodeId = _nodeId
 }
 
 func logRemotely(level LoggingLevel, message string) {
-	err := sendRemoteLog(&RemoteLogArgs{
+	err := remoteLoggerClient.Call("LoggerServer.Log", &RemoteLogArgs{
 		nodeId,
 		level,
 		message,
-	})
+	}, new(int))
 
 	if err != nil {
 		panic(err)

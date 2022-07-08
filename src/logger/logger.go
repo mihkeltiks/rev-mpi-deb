@@ -80,7 +80,7 @@ func Debug(str string, args ...interface{}) {
 func log(level LoggingLevel, str string, args ...interface{}) {
 	message := fmt.Sprintf(str, args...)
 
-	if sendRemoteLog == nil {
+	if remoteLoggerClient == nil {
 		logRow(level, message, nil)
 	} else {
 		logRemotely(level, message)

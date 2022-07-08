@@ -8,42 +8,52 @@ import (
 	"syscall"
 
 	"github.com/go-delve/delve/pkg/dwarf/op"
+	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/debugger/proc"
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
-func (cmd *command) handle(ctx *processContext) *cmdResult {
+type RemoteCmdHandler struct {
+	ctx *processContext
+}
+
+func (r RemoteCmdHandler) Handle(cmd *command.Command, reply *int) error {
+	logger.Debug("Scheduling command for execution %+v", cmd)
+	r.ctx.commandQueue = append(r.ctx.commandQueue, cmd)
+	return nil
+}
+
+func handleCommand(ctx *processContext, cmd *command.Command) {
 	var err error
 	var exited bool
 
-	logger.Info("handling command %+v", cmd)
+	logger.Verbose("handling command %v", cmd)
 
-	switch cmd.code {
-	case bpoint:
-		err = setBreakPoint(ctx, ctx.sourceFile, cmd.argument.(int))
-	case singleStep:
+	switch cmd.Code {
+	case command.Bpoint:
+		err = setBreakPoint(ctx, ctx.sourceFile, cmd.Argument.(int))
+	case command.SingleStep:
 		exited = continueExecution(ctx, true)
-	case cont:
+	case command.Cont:
 		exited = continueExecution(ctx, false)
-	case restore:
-		cpIndex := len(ctx.cpointData) - (1 + cmd.argument.(int))
+	case command.Restore:
+		cpIndex := len(ctx.cpointData) - (1 + cmd.Argument.(int))
 
 		restoreCheckpoint(ctx, cpIndex)
-	case print:
-		printVariable(ctx, cmd.argument.(string))
-	case quit:
+	case command.Print:
+		printVariable(ctx, cmd.Argument.(string))
+	case command.Quit:
 		quitDebugger()
-	case help:
+	case command.Help:
 		printInstructions()
-	case printInternal:
-		printInternalData(ctx, cmd.argument.(string))
+	case command.PrintInternal:
+		printInternalData(ctx, cmd.Argument.(string))
 	}
 
-	if cmd.isProgressCommand() {
+	if cmd.IsProgressCommand() {
 
 		for {
-
 			if exited {
 				break
 			}
@@ -60,7 +70,7 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 				reinsertMPIBPoints(ctx, bpoint)
 			}
 
-			if !bpoint.isMPIBpoint || cmd.code == singleStep {
+			if !bpoint.isMPIBpoint || cmd.Code == command.SingleStep {
 				break
 			}
 
@@ -68,7 +78,7 @@ func (cmd *command) handle(ctx *processContext) *cmdResult {
 		}
 	}
 
-	return &cmdResult{err, exited}
+	cmd.Result = &command.CommandResult{Err: err, Exited: exited}
 }
 
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
@@ -215,6 +225,6 @@ func printInternalData(ctx *processContext, varName string) {
 }
 
 func quitDebugger() {
-	fmt.Println("👋 Exiting..")
+	logger.Info("Exiting")
 	os.Exit(0)
 }
