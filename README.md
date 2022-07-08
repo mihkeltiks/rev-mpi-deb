@@ -22,7 +22,6 @@ bin/orchestror <num_processes> <path-to-target-mpi-binary>
 
 
 ## Other platforms (use Docker)
-Running only single-node MPI applications is supported with this configuration as of now.
 
 ### build
 
