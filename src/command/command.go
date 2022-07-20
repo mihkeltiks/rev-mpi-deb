@@ -52,7 +52,3 @@ func (cmd *Command) IsForwardProgressCommand() bool {
 func (cmd *Command) IsProgressCommand() bool {
 	return cmd.IsForwardProgressCommand() || cmd.Code == Restore
 }
-
-// func (ce CommandError) String() string {
-// 	return ce.Error
-// }

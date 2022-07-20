@@ -88,6 +88,7 @@ func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, 
 		panic(err) // file does not exist
 	}
 
+	// fork-based checkpointing temporarily disabled
 	// if len(os.Args) == 3 && os.Args[2] == "fork" {
 	// 	checkpointMode = forkMode
 	// 	logger.Info("Checkpoint mode: fork")
