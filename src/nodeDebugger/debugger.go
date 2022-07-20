@@ -10,8 +10,8 @@ import (
 	"syscall"
 
 	"github.com/ottmartens/cc-rev-db/command"
-	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/rpc"
 )
 

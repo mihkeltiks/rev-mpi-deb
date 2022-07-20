@@ -8,9 +8,9 @@ import (
 	"syscall"
 
 	"github.com/ottmartens/cc-rev-db/command"
-	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
-	"github.com/ottmartens/cc-rev-db/debugger/proc"
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
+	"github.com/ottmartens/cc-rev-db/nodeDebugger/proc"
 )
 
 type RemoteCmdHandler struct {
@@ -50,7 +50,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 		printInternalData(ctx, cmd.Argument.(string))
 	}
 
-	if cmd.IsProgressCommand() {
+	if cmd.IsForwardProgressCommand() {
 
 		for {
 			if exited {
@@ -80,16 +80,21 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	if !exited {
 		ctx.stack = getStack(ctx)
 
-		if cmd.IsProgressCommand() || cmd.Code == command.Restore {
+		if cmd.IsProgressCommand() {
 			logger.Info("call stack: %v", ctx.stack)
 		}
 	}
 
-	cmd.Result = &command.CommandResult{Err: err, Exited: exited}
+	cmd.Result = &command.CommandResult{
+		Exited: exited,
+	}
+
+	if err != nil {
+		cmd.Result.Error = err.Error()
+	}
 }
 
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
-	// logger.Debug("file %v", file)
 	address, err := ctx.dwarfData.LineToPC(file, line)
 
 	if err != nil {
@@ -108,7 +113,7 @@ func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 		isImmediateAfterRestore: false,
 	}
 
-	return
+	return nil
 }
 
 func continueExecution(ctx *processContext, singleStep bool) (exited bool) {

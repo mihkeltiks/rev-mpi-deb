@@ -15,4 +15,4 @@ USER dockerUser
 
 # RUN bin/compiler examples/hello.c
 
-# ENTRYPOINT [ "./bin/debug" ]
+# ENTRYPOINT [ "./bin/node-debugger" ]

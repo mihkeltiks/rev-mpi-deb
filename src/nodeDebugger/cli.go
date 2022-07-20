@@ -112,8 +112,8 @@ func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, 
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("cli mode: debug <target binary> cli")
-	fmt.Println("network mode: debug <target binary> <orchestrator address>")
+	fmt.Println("cli mode: node-debugger <target binary> cli")
+	fmt.Println("network mode: node-debugger <target binary> <orchestrator address>")
 	os.Exit(2)
 }
 

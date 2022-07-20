@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
 )
 
 type programStack []*stackFunction // the current call stack of the program

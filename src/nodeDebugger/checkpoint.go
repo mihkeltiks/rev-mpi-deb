@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/debugger/proc"
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/nodeDebugger/proc"
 )
 
 type CheckpointMode int

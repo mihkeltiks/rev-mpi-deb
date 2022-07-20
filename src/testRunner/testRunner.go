@@ -15,6 +15,7 @@ const SLEEP_MS = 300
 
 var runInDocker = false
 
+// Utility for automated testing of the node debugger
 func main() {
 	RUN_COUNT := 10
 
@@ -54,7 +55,7 @@ func main() {
 				"hello")
 		} else {
 			cmd = exec.Command(
-				"bin/debug",
+				"bin/node-debugger",
 				"hello")
 		}
 

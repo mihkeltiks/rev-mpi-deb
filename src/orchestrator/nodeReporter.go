@@ -28,7 +28,14 @@ func (r NodeReporter) Register(pid *int, reply *int) error {
 func (r NodeReporter) ReportCommandResult(cmd *command.Command, reply *int) error {
 	nodeId := cmd.NodeId
 
-	logger.Info("Node %v successfully executed command %v", nodeId, cmd)
+	if len(cmd.Result.Error) > 0 {
+		logger.Warn(
+			"Node %v reported an error while executing command: %v",
+			nodeId, cmd.Result.Error,
+		)
+	} else {
+		logger.Info("Node %v successfully executed command %v", nodeId, cmd)
+	}
 
 	if cmd.Result.Exited {
 		logger.Info("Node %v exited", nodeId)

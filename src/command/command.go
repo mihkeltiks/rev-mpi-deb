@@ -12,7 +12,7 @@ type Command struct {
 type CommandCode int
 
 type CommandResult struct {
-	Err    error
+	Error  string
 	Exited bool
 }
 
@@ -45,6 +45,14 @@ func (c Command) String() string {
 	}
 }
 
-func (cmd *Command) IsProgressCommand() bool {
+func (cmd *Command) IsForwardProgressCommand() bool {
 	return cmd.Code == SingleStep || cmd.Code == Cont
 }
+
+func (cmd *Command) IsProgressCommand() bool {
+	return cmd.IsForwardProgressCommand() || cmd.Code == Restore
+}
+
+// func (ce CommandError) String() string {
+// 	return ce.Error
+// }

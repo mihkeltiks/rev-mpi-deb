@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
 )
 
 type breakpointData map[uint64]*bpointData

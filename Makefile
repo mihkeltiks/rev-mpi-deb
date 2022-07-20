@@ -1,12 +1,8 @@
 UNAME_S := $(shell uname -s)
 
 build:
-	cd src/debugger && go build -o ../../bin/debug *.go
-
-orchestrator:
-	cd src/orchestrator && go build -o ../../bin/orchestrator *.go	
-	
-compiler:
+	cd src/nodeDebugger && go build -o ../../bin/node-debugger *.go
+	cd src/orchestrator && go build -o ../../bin/orchestrator *.go
 	cd src/compiler && go build -o ../../bin/compiler *.go
 
 docker:

@@ -11,7 +11,7 @@ import (
 	"github.com/ottmartens/cc-rev-db/rpc"
 )
 
-const DEBUGGER_PATH = "bin/debug"
+const NODE_DEBUGGER_PATH = "bin/node-debugger"
 const ORCHESTRATOR_PORT = 3490
 
 func main() {
@@ -33,7 +33,7 @@ func main() {
 		"mpirun",
 		"-np",
 		fmt.Sprintf("%d", numProcesses),
-		DEBUGGER_PATH,
+		NODE_DEBUGGER_PATH,
 		targetPath,
 		fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
 	)

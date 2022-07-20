@@ -10,7 +10,6 @@ import (
 
 func reportCommandResult(cmd *command.Command) {
 	err := rpc.Client.Call("NodeReporter.ReportCommandResult", cmd, new(int))
-
 	if err != nil {
 		logger.Error("Failed to report command result: %v", err)
 		panic(err)
