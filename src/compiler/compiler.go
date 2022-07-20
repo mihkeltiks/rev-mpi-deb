@@ -2,86 +2,103 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
 	"regexp"
 	"strings"
+
+	"github.com/ottmartens/cc-rev-db/logger"
 )
 
 const (
 	TEMP_FOLDER              = "bin/temp"
 	DEST_FOLDER              = "bin/targets"
-	WRAPPED_MPI_FORK_INCLUDE = `#include "mpi_wrap_fork.h"`
-	WRAPPED_MPI_FILE_INCLUDE = `#include "mpi_wrap_file.h"`
+	WRAPPED_MPI_FILE_INCLUDE = `#include "debug_mpi_wrap.h"`
+	WRAPPED_MPI_FORK_INCLUDE = `#include "debug_mpi_wrap_fork.h"`
 	WRAPPED_MPI_PATH         = "src/compiler/mpi_wrap_include"
 )
 
-type CheckpointMode int
-
-const (
-	fileMode CheckpointMode = iota
-	forkMode
-)
-
-var WRAPPED_MPI_INCLUDE string
+var WRAPPED_MPI_INCLUDE string = WRAPPED_MPI_FILE_INCLUDE
 
 /*
-	Wrapper to compile MPI programs
-	Wraps the MPI library for the target to enable intercepting MPI calls
+	Compile MPI programs for the debugger
+	Wraps the MPI library in the target to enable intercepting MPI calls
 */
 func main() {
-	validateArgs()
+	err := executeWorkflow()
 
-	// path to input file
-	inputFile := os.Args[1]
-
-	if len(os.Args) > 2 && os.Args[2] == "fork" {
-		WRAPPED_MPI_INCLUDE = WRAPPED_MPI_FORK_INCLUDE
-	} else {
-		WRAPPED_MPI_INCLUDE = WRAPPED_MPI_FILE_INCLUDE
+	if err != nil {
+		os.Exit(1)
 	}
-
-	ensureTargetExists(inputFile)
-
-	wrappedSource := createWrappedCopy(inputFile)
-
-	//remove the wrapped source file
-	defer os.Remove(wrappedSource.Name())
-
-	compile(wrappedSource.Name(), getDestPath(inputFile))
 }
 
-func compile(sourcePath string, destPath string) {
+func executeWorkflow() error {
+	inputFilePath, err := parseArguments()
+	if err != nil {
+		printUsage()
+		return err
+	}
+
+	// fork-based checkpointing temporarily disabled
+	// determineCheckpointingMode()
+
+	err = ensureValidTargetExists(inputFilePath)
+	if err != nil {
+		logger.Error("Specified target is not valid: %v", err)
+		return err
+	}
+
+	wrappedSource, err := createWrappedCopy(inputFilePath)
+	if err != nil {
+		logger.Error("Failed to create a wrapped source copy: %v", err)
+		return err
+	}
+
+	//remove the temporary wrapped source file
+	defer os.Remove(wrappedSource.Name())
+
+	err = compile(wrappedSource.Name(), getDestPath(inputFilePath))
+	if err != nil {
+		logger.Error("Compilation failed: %v ", err)
+		return err
+	}
+
+	return nil
+}
+
+func compile(sourcePath string, destPath string) error {
 	cmd := exec.Command("mpicc", "-g", "-no-pie", "-I", WRAPPED_MPI_PATH, "-o", destPath, sourcePath)
 
-	fmt.Println("compiling target with:")
-	fmt.Println(cmd)
+	logger.Info("compiling target")
+	logger.Verbose("%v", cmd)
 
 	cmd.Stderr = os.Stderr
 
 	err := cmd.Run()
 
 	if err != nil {
-		fmt.Println("compilation failed: ", err)
-		os.Exit(1)
+		return err
 	}
 
-	fmt.Println("compilation finished")
+	logger.Info("wrote compiled target to: %v", destPath)
+	logger.Info("compilation finished")
+
+	return nil
 }
 
-func createWrappedCopy(inputFile string) *os.File {
+func createWrappedCopy(inputFilePath string) (*os.File, error) {
+	filePath := fmt.Sprintf("%s/%s", TEMP_FOLDER, path.Base(inputFilePath))
 
-	fileName := fmt.Sprintf("%s-*.c", inputFile[strings.LastIndex(inputFile, "/")+1:])
-
-	dest, err := os.CreateTemp(TEMP_FOLDER, fileName)
+	dest, err := os.Create(filePath)
 
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	source, _ := os.Open(inputFile)
+	source, _ := os.Open(inputFilePath)
 	defer source.Close()
 
 	scanner := bufio.NewScanner(source)
@@ -96,7 +113,7 @@ func createWrappedCopy(inputFile string) *os.File {
 		dest.WriteString(terminate(line))
 	}
 
-	return dest
+	return dest, nil
 }
 
 func prefixMPICalls(line string) string {
@@ -106,26 +123,52 @@ func prefixMPICalls(line string) string {
 }
 
 func getDestPath(inputFilePath string) string {
-
-	inputFileName := path.Base(inputFilePath)
-	withoutExtension := strings.TrimSuffix(inputFileName, path.Ext(inputFileName))
-
-	return path.Join(DEST_FOLDER, withoutExtension)
+	return path.Join(DEST_FOLDER, fileNameWithoutExtension(inputFilePath))
 }
 
-func ensureTargetExists(inputFile string) {
-	_, err := os.Stat(inputFile)
+func fileNameWithoutExtension(inputFilePath string) string {
+	inputFileName := path.Base(inputFilePath)
+
+	return strings.TrimSuffix(inputFileName, path.Ext(inputFileName))
+}
+
+func ensureValidTargetExists(inputFilePath string) error {
+	fileInfo, err := os.Stat(inputFilePath)
 
 	if err != nil {
-		fmt.Printf("unable to find file: %v\n", inputFile)
-		os.Exit(2)
+		return fmt.Errorf("unable to find file: %v", inputFilePath)
 	}
+
+	if fileInfo.IsDir() {
+		return fmt.Errorf("%v is a directory", inputFilePath)
+	}
+
+	validExtensions := map[string]bool{".c": true, ".cpp": true}
+
+	fileExtension := path.Ext(fileInfo.Name())
+
+	if !validExtensions[fileExtension] {
+		return fmt.Errorf("unsupported file extension: %v", fileExtension)
+	}
+
+	return nil
 }
 
-func validateArgs() {
+func parseArguments() (string, error) {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: compiler <target file> <checkpoint_mode (fork|file)")
-		os.Exit(2)
+		return "", errors.New("")
+	}
+	return os.Args[1], nil
+}
+
+func printUsage() {
+	logger.Info("Usage: compiler <target file path>")
+	// logger.Info("Usage: compiler <target file> [fork](live-checkpointing)")
+}
+
+func determineCheckpointingMode() {
+	if len(os.Args) > 2 && os.Args[2] == "fork" {
+		WRAPPED_MPI_INCLUDE = WRAPPED_MPI_FORK_INCLUDE
 	}
 }
 

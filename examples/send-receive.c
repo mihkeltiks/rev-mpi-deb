@@ -1,59 +1,65 @@
 #include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 
-int size;
 int rank;
-int global = 420;
+int size;
+int phase = 0;
 
-void stuff()
+void initialise()
 {
-    printf("Let's go\n");
-
     MPI_Init(NULL, NULL);
 
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); // obtain current process rank
+    MPI_Comm_size(MPI_COMM_WORLD, &size); // obtain communicator size
 
-    printf("Hello world from processor rank %d\n", rank);
+    printf("Node %d: hello world\n", rank);
+}
 
-    int sendNumber;
-    int recvNumber;
+void passMessages()
+{
+    if (size < 2)
+    {
+        printf("not enough processes to do message passing\n");
+        return;
+    }
+
+    phase++; // phase 1
+
+    int sendValue;
+    int recvValue;
 
     int otherProcessRank;
 
     if (rank == 0)
     {
         otherProcessRank = 1;
-        sendNumber = 123;
+        sendValue = 123;
     }
     else
     {
         otherProcessRank = 0;
-        sendNumber = 456;
+        sendValue = 456;
     }
 
-    MPI_Send(&sendNumber, 1, MPI_INT, otherProcessRank, 0, MPI_COMM_WORLD);
-    printf("%d: sending value %d to %d\n", rank, sendNumber, otherProcessRank);
+    MPI_Send(&sendValue, 1, MPI_INT, otherProcessRank, 0, MPI_COMM_WORLD);
+    printf("Node %d: sending value %d to %d\n", rank, sendValue, otherProcessRank);
 
-    global = 840;
-    printf("mid\n");
+    phase++; // phase 2
 
-    MPI_Recv(&recvNumber, 1, MPI_INT, otherProcessRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    printf("%d: received value %d from %d\n", rank, recvNumber, otherProcessRank);
+    MPI_Recv(&recvValue, 1, MPI_INT, otherProcessRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    printf("Node %d: received value %d from %d\n", rank, recvValue, otherProcessRank);
 
-    printf("end\n");
-
-    MPI_Finalize();
+    phase++; // phase 3
 }
 
-void does()
+void finalise()
 {
-    stuff();
+    MPI_Finalize();
+    printf("Node %d: exiting\n", rank);
 }
 
 int main(int argc, char **argv)
 {
-    does();
+    initialise();
+    passMessages();
+    finalise();
 }
