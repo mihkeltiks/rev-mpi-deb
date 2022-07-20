@@ -11,12 +11,18 @@ import (
 	"github.com/ottmartens/cc-rev-db/logger"
 )
 
-type functionStack []*dwarf.Function
+type programStack []*stackFunction // the current call stack of the program
 
-func (stack functionStack) String() string {
+type stackFunction struct {
+	function     *dwarf.Function // definition of the function
+	baseAddress  uint64          // base address of the stack frame
+	stackAddress uint64
+}
+
+func (stack programStack) String() string {
 	str := ""
-	for index, fn := range stack {
-		str = fmt.Sprintf("%s%s", str, fn.Name())
+	for index, stackFunction := range stack {
+		str = fmt.Sprintf("%s%v", str, stackFunction.function.Name())
 
 		if index != len(stack)-1 {
 			str = fmt.Sprintf("%s <- ", str)
@@ -26,7 +32,30 @@ func (stack functionStack) String() string {
 	return str
 }
 
-func getStack(ctx *processContext, bpoint *bpointData) functionStack {
+func (stack programStack) lookupParameter(varName string) (*dwarf.Parameter, *stackFunction) {
+	for _, stackFunction := range stack {
+		for _, param := range stackFunction.function.Parameters {
+
+			if param.Name == varName {
+				return param, stackFunction
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func (stack programStack) lookupFunction(fn *dwarf.Function) *stackFunction {
+	for _, stackFn := range stack {
+		if stackFn.function == fn {
+			return stackFn
+		}
+	}
+
+	return nil
+}
+
+func getStack(ctx *processContext) programStack {
 
 	regs, err := getRegs(ctx, false)
 	must(err)
@@ -37,25 +66,25 @@ func getStack(ctx *processContext, bpoint *bpointData) functionStack {
 	var offset uint64
 
 	ptrSize := uint64(ptrSize())
-	// logger.Debug("bpoint: %v", bpoint)
-	// logger.Debug("ip: %#x", regs.Rip)
-	// logger.Debug("sp: %#x", regs.Rsp)
-	// logger.Debug("bp: %#x", regs.Rbp)
+
 	fn := ctx.dwarfData.PCToFunc(regs.Rip)
-	fnStack := []*dwarf.Function{fn}
+
+	if fn == nil {
+		return nil
+	}
+
+	fnStack := programStack{
+		&stackFunction{
+			function:     fn,
+			baseAddress:  basePointer,
+			stackAddress: stackPointer,
+		},
+	}
 
 	for {
-		// logger.Debug("func: %s", fn.name)
-
 		offset = 0
 
 		frameSize := basePointer - stackPointer + ptrSize
-
-		// logger.Debug("stack pointer: %#x", stackPointer)
-		// logger.Debug("base pointer: %#x", basePointer)
-		// logger.Debug("frame size: %d", frameSize)
-
-		// logger.Debug("frame size: %v", frameSize)
 
 		if frameSize > 1024 || frameSize <= ptrSize {
 			logger.Debug("invalid base pointer or frame size")
@@ -67,36 +96,20 @@ func getStack(ctx *processContext, bpoint *bpointData) functionStack {
 		must(err)
 
 		// First instruction in frame - return address from stack frame
-		content := binary.LittleEndian.Uint64(frameData[:ptrSize])
-		fn = ctx.dwarfData.PCToFunc(content)
+		stackContent := binary.LittleEndian.Uint64(frameData[:ptrSize])
+
+		fn = ctx.dwarfData.PCToFunc(stackContent)
 
 		if fn != nil {
-			fnStack = append(fnStack, fn)
-		} else {
-			logger.Debug("stack return address fallback")
-			// break
-			content := binary.LittleEndian.Uint64(frameData[ptrSize : 2*ptrSize])
-			fn = ctx.dwarfData.PCToFunc(content)
-
-			if fn != nil {
-				fnStack = append(fnStack, fn)
-			} else {
-				logger.Debug("no matching function found for stack frame return address")
-				break
-			}
-
+			fnStack = append(fnStack, &stackFunction{function: fn, baseAddress: basePointer, stackAddress: stackPointer})
 		}
 
 		for offset = 0; offset < frameSize; offset += ptrSize {
 
-			content = binary.LittleEndian.Uint64(frameData[offset : offset+ptrSize])
-			// _fn := ctx.dwarfData.PCToFunc(content)
+			stackContent = binary.LittleEndian.Uint64(frameData[offset : offset+ptrSize])
 
-			// logger.Debug("content at offset %d : %#x matching func: %v", offset, content, _fn)
-			// reached the end of the stack frame
 			if offset == frameSize-ptrSize {
-				logger.Debug("end of frame")
-				basePointer = content
+				basePointer = stackContent
 				break
 			}
 		}

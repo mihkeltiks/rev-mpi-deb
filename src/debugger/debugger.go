@@ -31,6 +31,7 @@ type processContext struct {
 	cpointData     checkpointData     // holds data about currently recorded checkppoints
 	checkpointMode CheckpointMode     // whether checkpoints are recorded in files or in forked processes
 	commandQueue   []*command.Command // commands scheduled for execution by orchestrator
+	stack          programStack       // current call stack of the target. updated after each command execution
 }
 
 func main() {
@@ -80,7 +81,6 @@ func main() {
 }
 
 func handleRemoteWorkflow(ctx *processContext) {
-
 	port := 3500 + nodeId
 
 	go func() {

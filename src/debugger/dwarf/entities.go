@@ -51,13 +51,14 @@ type Function struct {
 	col        int64        // col nr
 	lowPC      uint64       // first PC address for the function
 	highPC     uint64       // last PC address for the function
-	parameters []*parameter // function parameters
+	Parameters []*Parameter // function parameters
 }
 
-type parameter struct {
-	name                 string
+type Parameter struct {
+	Name                 string
 	baseType             *BaseType            // type of the variable
-	locationInstructions locationInstructions //
+	locationInstructions locationInstructions // raw dwarf location instructions
+	function             *Function            // the function the parameter is an argument for
 }
 
 type BaseType struct {
@@ -70,7 +71,8 @@ type Variable struct {
 	name                 string               // variable name
 	baseType             *BaseType            // type of the variable
 	locationInstructions locationInstructions // raw dwarf location instructions
-	function             *Function            // the function where variable is declared (might be nil)
+	Function             *Function            // the function where variable is declared (might be nil)
+	isFnParam            bool                 // whether the variable is a function parameter
 }
 
 type MPIData struct {
@@ -90,7 +92,7 @@ func (m Module) String() string {
 }
 
 func (fn Function) String() string {
-	return fmt.Sprintf("{name:%s start:%#x end:%#x params:%v }", fn.name, fn.lowPC, fn.highPC, fn.parameters)
+	return fmt.Sprintf("{name:%s start:%x end:%x params:%v }", fn.name, fn.lowPC, fn.highPC, fn.Parameters)
 }
 
 func (fn *Function) Name() string {
@@ -104,8 +106,22 @@ func (e Entry) String() string {
 	return fmt.Sprintf("entry{address: %#x, file:%d, line: %d, col: %d, isStmt: %v}", e.Address, e.file, e.line, e.col, e.isStmt)
 }
 
-func (p parameter) String() string {
-	return fmt.Sprintf("%s (%s)", p.name, p.baseType.name)
+func (p Parameter) String() string {
+	return fmt.Sprintf("%s (%s)", p.Name, p.baseType.name)
+}
+
+func (p *Parameter) AsVariable() *Variable {
+	if p == nil {
+		return nil
+	}
+
+	return &Variable{
+		name:                 p.Name,
+		baseType:             p.baseType,
+		locationInstructions: p.locationInstructions,
+
+		isFnParam: true,
+	}
 }
 
 func (dMap typeMap) String() string {
@@ -120,7 +136,7 @@ func (v *Variable) String() string {
 	return fmt.Sprintf("{name:%v, type: %v, location: %v}", v.name, v.baseType.name, v.locationInstructions)
 }
 
-func (v *Variable) DecodeLocation(dRegisters op.DwarfRegisters) (address uint64, pieces []op.Piece, err error) {
+func (v *Variable) DecodeLocation(dRegisters DwarfRegisters) (address uint64, pieces []Piece, err error) {
 	return v.locationInstructions.decode(dRegisters)
 }
 
@@ -134,7 +150,7 @@ func (li locationInstructions) String() string {
 	return buf.String()
 }
 
-func (li locationInstructions) decode(dRegisters op.DwarfRegisters) (address uint64, pieces []op.Piece, err error) {
-	addr, pieces, err := op.ExecuteStackProgram(dRegisters, li, ptrSize(), nil)
+func (li locationInstructions) decode(dRegisters DwarfRegisters) (address uint64, pieces []Piece, err error) {
+	addr, pieces, err := ExecuteStackProgram(dRegisters, li, ptrSize(), nil)
 	return uint64(addr), pieces, err
 }

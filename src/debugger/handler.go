@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/go-delve/delve/pkg/dwarf/op"
 	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/debugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/debugger/proc"
@@ -78,11 +77,19 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 		}
 	}
 
+	if !exited {
+		ctx.stack = getStack(ctx)
+
+		if cmd.IsProgressCommand() || cmd.Code == command.Restore {
+			logger.Info("call stack: %v", ctx.stack)
+		}
+	}
+
 	cmd.Result = &command.CommandResult{Err: err, Exited: exited}
 }
 
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
-	logger.Debug("file %v", file)
+	// logger.Debug("file %v", file)
 	address, err := ctx.dwarfData.LineToPC(file, line)
 
 	if err != nil {
@@ -90,7 +97,7 @@ func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 		return err
 	}
 
-	logger.Debug("setting breakpoint at file: %v, line: %d", file, line)
+	logger.Debug("setting breakpoint at line: %d, file: %v", line, file)
 	originalInstruction := insertBreakpoint(ctx, address)
 
 	ctx.bpointData[address] = &bpointData{
@@ -148,14 +155,37 @@ func printVariable(ctx *processContext, varName string) {
 }
 
 func getVariableFromMemory(ctx *processContext, varName string) (value interface{}) {
-	variable := ctx.dwarfData.LookupVariable(varName)
+
+	parameter, stackFunction := ctx.stack.lookupParameter(varName)
+
+	variable := parameter.AsVariable()
+
+	if variable == nil {
+		variable = ctx.dwarfData.LookupVariable(varName)
+
+		if variable != nil && variable.Function != nil {
+			stackFunction = ctx.stack.lookupFunction(variable.Function)
+		}
+	}
 
 	if variable == nil {
 		fmt.Printf("Cannot find variable: %s\n", varName)
 		return nil
 	}
 
-	address, _, err := variable.DecodeLocation(op.DwarfRegisters{})
+	var frameBase int64
+
+	if stackFunction != nil {
+		frameBase = int64(stackFunction.baseAddress + 16)
+	}
+
+	address, _, err := variable.DecodeLocation(dwarf.DwarfRegisters{FrameBase: frameBase})
+
+	// for _, sf := range ctx.stack {
+	// 	logger.Info("fn %s, bp %d, sp %d", sf.function.Name(), sf.baseAddress, sf.stackAddress)
+	// }
+
+	// logger.Info("frameBase: %d", frameBase)
 
 	if err != nil {
 		panic(fmt.Sprintf("Error decoding variable: %v", err))
@@ -166,15 +196,17 @@ func getVariableFromMemory(ctx *processContext, varName string) (value interface
 		return nil
 	}
 
+	// logger.Debug("location of variable: %d", address)
+
 	rawValue := peekDataFromMemory(ctx, address, variable.ByteSize())
 
-	logger.Debug("location of variable: %#x", address)
-	logger.Debug("raw value of variable: %v", rawValue)
+	// logger.Debug("raw value of variable: %v", rawValue)
+
 	// memRawValue := proc.ReadFromMemFile(ctx.pid, address, int(variable.baseType.byteSize))
 
 	// fmt.Printf("raw value from ptrace: %v, mem-file: %v\n", rawValue, memRawValue)
 
-	logger.Debug("got raw value of variable %s: %v", varName, rawValue)
+	// logger.Debug("got raw value of variable %s: %v", varName, rawValue)
 
 	return convertValueToType(rawValue, variable)
 }

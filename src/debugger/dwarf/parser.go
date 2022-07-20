@@ -65,7 +65,7 @@ func ParseDwarfData(targetFile string) *DwarfData {
 		case dwarf.TagFormalParameter:
 			parameter := parseFunctionParameter(entry, data)
 
-			currentFunction.parameters = append(currentFunction.parameters, parameter)
+			currentFunction.Parameters = append(currentFunction.Parameters, parameter)
 
 		// variable declaration
 		case dwarf.TagVariable:
@@ -80,7 +80,7 @@ func ParseDwarfData(targetFile string) *DwarfData {
 			variable := &Variable{
 				name:     entry.Val(dwarf.AttrName).(string),
 				baseType: baseType,
-				function: currentFunction,
+				Function: currentFunction,
 			}
 
 			locationInstructions := entry.Val(dwarf.AttrLocation)
@@ -100,7 +100,7 @@ func ParseDwarfData(targetFile string) *DwarfData {
 	return data
 }
 
-func parseFunctionParameter(entry *dwarf.Entry, data *DwarfData) *parameter {
+func parseFunctionParameter(entry *dwarf.Entry, data *DwarfData) *Parameter {
 
 	baseType := data.Types[(entry.Val(dwarf.AttrType).(dwarf.Offset))]
 
@@ -110,8 +110,8 @@ func parseFunctionParameter(entry *dwarf.Entry, data *DwarfData) *parameter {
 		}
 	}
 
-	parameter := &parameter{
-		name:                 entry.Val(dwarf.AttrName).(string),
+	parameter := &Parameter{
+		Name:                 entry.Val(dwarf.AttrName).(string),
 		baseType:             baseType,
 		locationInstructions: entry.Val(dwarf.AttrLocation).([]byte),
 	}
@@ -155,7 +155,7 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *Function {
 	}
 	function.lowPC = ranges[0][0]
 	function.highPC = ranges[0][1]
-	function.parameters = make([]*parameter, 0)
+	function.Parameters = make([]*Parameter, 0)
 
 	return &function
 }
