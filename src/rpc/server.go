@@ -34,9 +34,8 @@ func InitializeServer(port int, registerComponents func(Registrator)) {
 	http.Serve(listener, nil)
 }
 
-func (h *Health) Heartbeat(args *int, reply *int) error {
-	healthyResponse := 0
+type Health int
 
-	reply = &healthyResponse
+func (h *Health) Heartbeat(args *int, reply *int) error {
 	return nil
 }

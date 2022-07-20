@@ -48,7 +48,7 @@ func (r *RPCClient) Heartbeat() {
 	err := r.Call("Health.Heartbeat", new(int), new(int))
 
 	if err != nil {
-		panic(fmt.Sprintf("Heartbeat error, %v", err))
+		panic(fmt.Sprintf("Heartbeat error: %v", err))
 	}
 
 	logger.Debug("Heartbeat ok (server %v)", r.address)
