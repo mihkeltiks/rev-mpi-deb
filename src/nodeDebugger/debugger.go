@@ -17,7 +17,6 @@ import (
 
 const MAIN_FN = "main"
 
-var cliMode = false
 var orchestratorAddress string
 var nodeId int
 
@@ -41,7 +40,7 @@ func main() {
 
 	precleanup()
 
-	targetFile, checkpointMode, orchestratorAddress := getValuesFromArgs()
+	targetFile, checkpointMode, orchestratorAddress, standaloneMode := getValuesFromArgs()
 
 	ctx := &processContext{
 		targetFile:     targetFile,
@@ -50,7 +49,7 @@ func main() {
 		cpointData:     checkpointData{}.New(),
 	}
 
-	if !cliMode {
+	if !standaloneMode {
 		// connect to orchestrator
 		rpc.Client.Connect(orchestratorAddress)
 
@@ -72,7 +71,7 @@ func main() {
 	// set up automatic breakpoints
 	insertMPIBreakpoints(ctx)
 
-	if cliMode {
+	if standaloneMode {
 		handleCLIWorkflow(ctx)
 	} else {
 		handleRemoteWorkflow(ctx)
@@ -92,6 +91,7 @@ func handleRemoteWorkflow(ctx *processContext) {
 	}()
 
 	for {
+		// TODO: use a channel
 		if len(ctx.commandQueue) > 0 {
 			cmd := ctx.commandQueue[0]
 

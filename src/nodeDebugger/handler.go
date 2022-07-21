@@ -149,9 +149,7 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 }
 
 func printVariable(ctx *processContext, varName string) {
-
 	value := getVariableFromMemory(ctx, varName)
-
 	if value == nil {
 		return
 	}
@@ -159,60 +157,73 @@ func printVariable(ctx *processContext, varName string) {
 	fmt.Printf("Value of variable %s: %v\n", varName, value)
 }
 
-func getVariableFromMemory(ctx *processContext, varName string) (value interface{}) {
+// Retrieves the value of a variable matching the specified idendifier, if present in the target
+func getVariableFromMemory(ctx *processContext, identifier string) (value interface{}) {
+	var variable *dwarf.Variable
+	var variableStackFunction *stackFunction
 
-	parameter, stackFunction := ctx.stack.lookupParameter(varName)
+	// Process the call stack to find the matching variable
+	for _, stackFunction := range ctx.stack {
+		logger.Info("stack fn %v", stackFunction.function.Name())
+		// Look for the variable declared in the stack function
+		variable = ctx.dwarfData.LookupVariableInFunction(stackFunction.function, identifier)
 
-	variable := parameter.AsVariable()
+		if variable != nil {
+			logger.Verbose("Referring to variable %v as declared in function %v", identifier, stackFunction.function.Name())
+			variableStackFunction = stackFunction
+			break
+		}
 
-	if variable == nil {
-		variable = ctx.dwarfData.LookupVariable(varName)
+		// Inspect the parameters of the stack function
+		matchingParameter := stackFunction.lookupParameter(identifier)
 
-		if variable != nil && variable.Function != nil {
-			stackFunction = ctx.stack.lookupFunction(variable.Function)
+		if matchingParameter != nil {
+			logger.Verbose("Referring to variable %v as function parameter for function %v", identifier, stackFunction.function.Name())
+			variable = matchingParameter.AsVariable()
+			variableStackFunction = stackFunction
+			break
 		}
 	}
 
 	if variable == nil {
-		fmt.Printf("Cannot find variable: %s\n", varName)
+		// Look for a global variable
+		variable = ctx.dwarfData.LookupVariable(identifier)
+		if variable != nil {
+			logger.Verbose("Referring to variable %v as a global variable", identifier)
+		}
+	}
+
+	if variable == nil {
+		logger.Info("Cannot locate variable: %s", identifier)
 		return nil
 	}
 
 	var frameBase int64
 
-	if stackFunction != nil {
-		frameBase = int64(stackFunction.baseAddress + 16)
+	if variableStackFunction != nil {
+		frameBase = int64(variableStackFunction.baseAddress + 16)
 	}
 
+	// Debug the variable location instructions to obtain memory address
 	address, _, err := variable.DecodeLocation(dwarf.DwarfRegisters{FrameBase: frameBase})
 
-	// for _, sf := range ctx.stack {
-	// 	logger.Info("fn %s, bp %d, sp %d", sf.function.Name(), sf.baseAddress, sf.stackAddress)
-	// }
-
-	// logger.Info("frameBase: %d", frameBase)
-
 	if err != nil {
-		panic(fmt.Sprintf("Error decoding variable: %v", err))
+		logger.Error("Error decoding variable: %v", err)
+		return nil
 	}
 
 	if address == 0 {
-		fmt.Println("Cannot locate this variable")
+		logger.Warn("Cannot locate this variable")
 		return nil
 	}
 
 	// logger.Debug("location of variable: %d", address)
 
 	rawValue := peekDataFromMemory(ctx, address, variable.ByteSize())
-
+	// rawValue := proc.ReadFromMemFile(ctx.pid, address, int(variable.baseType.byteSize))
 	// logger.Debug("raw value of variable: %v", rawValue)
 
-	// memRawValue := proc.ReadFromMemFile(ctx.pid, address, int(variable.baseType.byteSize))
-
-	// fmt.Printf("raw value from ptrace: %v, mem-file: %v\n", rawValue, memRawValue)
-
-	// logger.Debug("got raw value of variable %s: %v", varName, rawValue)
-
+	// Convert the binary value to accurate type representation
 	return convertValueToType(rawValue, variable)
 }
 

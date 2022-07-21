@@ -82,8 +82,6 @@ func getUserInputLine() string {
 
 	text = strings.Replace(text, "\n", "", 1)
 
-	text = strings.ToLower(text)
-
 	return text
 }
 
@@ -122,24 +120,24 @@ func parseCommandFromString(input string) (c *command.Command) {
 
 	switch {
 
-	case matchPidRegexp(input, `b \d+`): // breakpoint
+	case matchPidRegexp(input, `[b|B] \d+`): // breakpoint
 
 		lineNr, _ := strconv.Atoi(pieces[2])
 
 		return &command.Command{NodeId: pid, Code: command.Bpoint, Argument: lineNr}
 
-	case matchPidRegexp(input, "c"): // continue
+	case matchPidRegexp(input, "[c|C]"): // continue
 		return &command.Command{NodeId: pid, Code: command.Cont, Argument: nil}
 
-	case matchPidRegexp(input, "s"): // single step
+	case matchPidRegexp(input, "[s|S]"): // single step
 		return &command.Command{NodeId: pid, Code: command.SingleStep, Argument: nil}
 
-	case matchPidRegexp(input, `p [a-zA-Z_][a-zA-Z0-9_]*`): // print variable
-		varName := strings.Split(input, " ")[2]
+	case matchPidRegexp(input, `[p|P] [a-zA-Z_][a-zA-Z0-9_]*`): // print variable
+		identifier := strings.Split(input, " ")[2]
 
-		return &command.Command{NodeId: pid, Code: command.Print, Argument: varName}
+		return &command.Command{NodeId: pid, Code: command.Print, Argument: identifier}
 
-	case matchPidRegexp(input, `r [0-9]*`): // restore
+	case matchPidRegexp(input, `[r|R] [0-9]*`): // restore
 
 		index := 0
 		if len(pieces) > 2 {

@@ -32,17 +32,14 @@ func (stack programStack) String() string {
 	return str
 }
 
-func (stack programStack) lookupParameter(varName string) (*dwarf.Parameter, *stackFunction) {
-	for _, stackFunction := range stack {
-		for _, param := range stackFunction.function.Parameters {
-
-			if param.Name == varName {
-				return param, stackFunction
-			}
+func (sf stackFunction) lookupParameter(varName string) *dwarf.Parameter {
+	for _, param := range sf.function.Parameters {
+		if param.Name == varName {
+			return param
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
 func (stack programStack) lookupFunction(fn *dwarf.Function) *stackFunction {

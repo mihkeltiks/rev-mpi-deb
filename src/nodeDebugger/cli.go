@@ -62,7 +62,7 @@ func printInstructions() {
 }
 
 // parse and validate command line arguments
-func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, orchestratorAddress *url.URL) {
+func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, orchestratorAddress *url.URL, isStandaloneMode bool) {
 
 	if len(os.Args) < 3 {
 		printUsage()
@@ -98,7 +98,7 @@ func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, 
 	// }
 
 	if os.Args[2] == "cli" {
-		cliMode = true
+		isStandaloneMode = true
 	} else {
 		orchestratorAddress, err = url.ParseRequestURI(os.Args[2])
 
@@ -108,7 +108,7 @@ func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, 
 		}
 	}
 
-	return targetFilePath, fileMode, orchestratorAddress
+	return targetFilePath, fileMode, orchestratorAddress, isStandaloneMode
 }
 
 func printUsage() {
@@ -139,9 +139,9 @@ func parseCommandFromString(input string) (c *command.Command) {
 		return &command.Command{Code: command.SingleStep, Argument: nil}
 
 	case printRegexp.Match([]byte(input)):
-		varName := strings.Split(input, " ")[1]
+		identifier := strings.Split(input, " ")[1]
 
-		return &command.Command{Code: command.Print, Argument: varName}
+		return &command.Command{Code: command.Print, Argument: identifier}
 
 	case input == "q":
 		return &command.Command{Code: command.Quit, Argument: nil}

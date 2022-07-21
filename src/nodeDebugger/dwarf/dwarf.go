@@ -22,6 +22,7 @@ func (m *Module) LookupFunc(functionName string) *Function {
 	return nil
 }
 
+// Retrieve a function with a matching name
 func (d *DwarfData) LookupFunc(functionName string) (module *Module, function *Function) {
 	for _, module := range d.Modules {
 		if function := module.LookupFunc(functionName); function != nil {
@@ -31,10 +32,11 @@ func (d *DwarfData) LookupFunc(functionName string) (module *Module, function *F
 	return nil, nil
 }
 
-func (d *DwarfData) LookupVariable(varName string) *Variable {
+// Retrieve a variable with a matching identifier
+func (d *DwarfData) LookupVariable(idendifier string) *Variable {
 	for _, module := range d.Modules {
 		for _, variable := range module.Variables {
-			if variable.name == varName {
+			if variable.name == idendifier {
 				return variable
 			}
 		}
@@ -43,6 +45,22 @@ func (d *DwarfData) LookupVariable(varName string) *Variable {
 	return nil
 }
 
+// Retrieve a variable with a matching identifier only if defined in the supplied function
+func (d *DwarfData) LookupVariableInFunction(function *Function, identifier string) *Variable {
+	for _, module := range d.Modules {
+		for _, variable := range module.Variables {
+			if variable.name == identifier {
+				if variable.Function != nil && variable.Function == function {
+					return variable
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// Retrieve intruction entries for the function matching the identifier
 func (d *DwarfData) GetEntriesForFunction(functionName string) []Entry {
 	entries := make([]Entry, 0)
 	module, function := d.LookupFunc(functionName)
@@ -80,11 +98,9 @@ func (d *DwarfData) PCToLine(pc uint64) (line int, file string, function *Functi
 		if pc >= module.startAddress && pc <= module.endAddress {
 			for _, entry := range module.entries {
 				if entry.Address == pc {
-
 					function := d.PCToFunc(pc)
 
 					return entry.line, module.files[entry.file], function, nil
-
 				}
 			}
 		}

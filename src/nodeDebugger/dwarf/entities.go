@@ -1,11 +1,8 @@
 package dwarf
 
 import (
-	"bytes"
 	"debug/dwarf"
 	"fmt"
-
-	"github.com/go-delve/delve/pkg/dwarf/op"
 )
 
 type Module struct {
@@ -144,11 +141,11 @@ func (v *Variable) ByteSize() int64 {
 	return v.baseType.byteSize
 }
 
-func (li locationInstructions) String() string {
-	buf := new(bytes.Buffer)
-	op.PrettyPrint(buf, []byte(li))
-	return buf.String()
-}
+// func (li locationInstructions) String() string {
+// 	buf := new(bytes.Buffer)
+// 	op.PrettyPrint(buf, []byte(li))
+// 	return buf.String()
+// }
 
 func (li locationInstructions) decode(dRegisters DwarfRegisters) (address uint64, pieces []Piece, err error) {
 	addr, pieces, err := ExecuteStackProgram(dRegisters, li, ptrSize(), nil)
