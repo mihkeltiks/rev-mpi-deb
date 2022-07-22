@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
 )
 
@@ -53,9 +52,7 @@ func (stack programStack) lookupFunction(fn *dwarf.Function) *stackFunction {
 }
 
 func getStack(ctx *processContext) programStack {
-
-	regs, err := getRegs(ctx, false)
-	must(err)
+	regs := getRegs(ctx, false)
 
 	stackPointer := regs.Rsp
 	basePointer := regs.Rbp
@@ -84,7 +81,7 @@ func getStack(ctx *processContext) programStack {
 		frameSize := basePointer - stackPointer + ptrSize
 
 		if frameSize > 1024 || frameSize <= ptrSize {
-			logger.Debug("invalid base pointer or frame size")
+			// logger.Debug("invalid base pointer or frame size")
 			frameSize = 32
 		}
 

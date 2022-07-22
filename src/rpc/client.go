@@ -14,9 +14,7 @@ type RPCClient struct {
 	address    *url.URL
 }
 
-var Client *RPCClient = &RPCClient{}
-
-func (r *RPCClient) Connect(serverAddress *url.URL) *RPCClient {
+func Connect(serverAddress *url.URL) *RPCClient {
 	logger.Debug("connecting to rpc server at %v", serverAddress)
 
 	connection, err := rpc.DialHTTP("tcp", serverAddress.String())
@@ -30,8 +28,6 @@ func (r *RPCClient) Connect(serverAddress *url.URL) *RPCClient {
 		connection: connection,
 		address:    serverAddress,
 	}
-
-	Client = &client
 
 	return &client
 }

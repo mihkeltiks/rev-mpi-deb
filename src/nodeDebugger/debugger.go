@@ -17,9 +17,6 @@ import (
 
 const MAIN_FN = "main"
 
-var orchestratorAddress string
-var nodeId int
-
 type processContext struct {
 	targetFile     string             // the executing binary file
 	sourceFile     string             // source code file
@@ -31,6 +28,12 @@ type processContext struct {
 	checkpointMode CheckpointMode     // whether checkpoints are recorded in files or in forked processes
 	commandQueue   []*command.Command // commands scheduled for execution by orchestrator
 	stack          programStack       // current call stack of the target. updated after each command execution
+	nodeData       *nodeData          // data about connection with the orchestrator
+}
+
+type nodeData struct {
+	id        int            // designated by the orchestrator
+	rpcClient *rpc.RPCClient // rpc client for communicating with the orchestrator
 }
 
 func main() {
@@ -51,10 +54,12 @@ func main() {
 
 	if !standaloneMode {
 		// connect to orchestrator
-		rpc.Client.Connect(orchestratorAddress)
+		ctx.nodeData = &nodeData{
+			rpcClient: rpc.Connect(orchestratorAddress),
+		}
 
-		nodeId = reportAsHealthy()
-		logger.SetRemoteClient(rpc.Client, nodeId)
+		ctx.nodeData.id = reportAsHealthy(ctx)
+		logger.SetRemoteClient(ctx.nodeData.rpcClient, ctx.nodeData.id)
 
 		logger.Info("Process (pid: %d) registered", os.Getpid())
 	}
@@ -80,7 +85,7 @@ func main() {
 }
 
 func handleRemoteWorkflow(ctx *processContext) {
-	port := 3500 + nodeId
+	port := 3500 + ctx.nodeData.id
 
 	go func() {
 		rpc.InitializeServer(port, func(register rpc.Registrator) {
@@ -97,7 +102,7 @@ func handleRemoteWorkflow(ctx *processContext) {
 
 			handleCommand(ctx, cmd)
 
-			reportCommandResult(cmd)
+			reportCommandResult(ctx, cmd)
 
 			if cmd.Result.Exited {
 				logger.Info("Exiting")

@@ -8,6 +8,7 @@ import (
 
 	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/orchestrator/checkpointmanager"
 	"github.com/ottmartens/cc-rev-db/rpc"
 )
 
@@ -59,9 +60,10 @@ func main() {
 
 	defer stopAllNodes()
 
-	// handleRemotely(&command.Command{NodeId: 0, Code: command.Bpoint, Argument: 19})
+	time.Sleep(time.Second)
 
 	printInstructions()
+
 	for {
 		cmd := askForInput()
 
@@ -71,9 +73,42 @@ func main() {
 			return
 		case command.Help:
 			printInstructions()
+			break
+		case command.ListCheckpoints:
+			checkpointmanager.ListCheckpoints()
+			break
+		case command.GlobalRollback:
+			handleRollbackSubmission(cmd)
 		default:
 			handleRemotely(cmd)
 			time.Sleep(time.Second)
 		}
+	}
+}
+
+func handleRollbackSubmission(cmd *command.Command) {
+	pendingRollback := checkpointmanager.SubmitForRollback(cmd)
+	if pendingRollback == nil {
+		return
+	}
+
+	logger.Info("Following checkpoints scheduled for rollback:")
+	logger.Info("%v", pendingRollback)
+
+	commit := askForRollbackCommit()
+
+	if !commit {
+		logger.Info("Aborting rollback")
+	}
+
+	logger.Info("Executing distributed rollback")
+	err := executeRollback(pendingRollback)
+
+	time.Sleep(time.Second)
+
+	if err == nil {
+		logger.Info("Distributed rollback executed successfully")
+	} else {
+		logger.Error("Distributed rollback failed")
 	}
 }

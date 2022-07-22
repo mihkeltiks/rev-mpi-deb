@@ -24,6 +24,11 @@ type checkpointData []cPoint
 type cPoint struct {
 	opName string              // name of the mpi operation where checkpoint was made
 	regs   *syscall.PtraceRegs // register values at checkpoint
+	id     string              // unique id of the checkpoint
+
+	// file mode
+	file    string           // file in which checkpoint data is stored
+	regions []proc.MemRegion // descriptors of memory ranges
 
 	// fork mode
 	pid          int              // process id of the fork at checkpoint
@@ -31,9 +36,6 @@ type cPoint struct {
 	stackRawData [][]byte         // raw value of stack at checkpoint
 	bpoints      breakpointData   // breakpoints at checkpoint time
 
-	// file mode
-	file    string           // file in which checkpoint data is stored
-	regions []proc.MemRegion // descriptors of memory ranges
 }
 
 func (c checkpointData) New() checkpointData {
@@ -44,7 +46,7 @@ func (cp cPoint) String() string {
 	return fmt.Sprintf("cp{opName: %s}", cp.opName)
 }
 
-func createCheckpoint(ctx *processContext, opName string) {
+func createCheckpoint(ctx *processContext, opName string) string {
 
 	logger.Verbose("creating new checkpoint (%v)", opName)
 
@@ -55,6 +57,8 @@ func createCheckpoint(ctx *processContext, opName string) {
 	} else {
 		checkpoint = createForkCheckpoint(ctx, opName)
 	}
+
+	checkpoint.id = randomId()
 
 	for address, bp := range ctx.bpointData {
 		checkpoint.bpoints[address] = &bpointData{
@@ -68,23 +72,32 @@ func createCheckpoint(ctx *processContext, opName string) {
 
 	ctx.cpointData = append(ctx.cpointData, checkpoint)
 
+	return checkpoint.id
 }
 
-func restoreCheckpoint(ctx *processContext, cpIndex int) {
+func restoreCheckpoint(ctx *processContext, checkpointId string) error {
 
-	if cpIndex < 0 || cpIndex >= len(ctx.cpointData) {
-		fmt.Printf("No checkpoint at index %d\n", (len(ctx.cpointData) - (1 + cpIndex)))
-		return
+	var checkpoint *cPoint
+
+	for _, cp := range ctx.cpointData {
+		if cp.id == checkpointId {
+			checkpoint = &cp
+			break
+		}
 	}
 
-	checkpoint := ctx.cpointData[cpIndex]
+	if checkpoint == nil {
+		err := fmt.Errorf("Checkpoint with id %v not found", checkpointId)
+		logger.Error("%v", err)
+		return err
+	}
 
-	logger.Info("restoring checpoint %v", checkpoint)
+	logger.Info("restoring checkpoint %v", checkpoint)
 
 	if ctx.checkpointMode == forkMode {
-		restoreForkCheckpoint(ctx, checkpoint)
+		restoreForkCheckpoint(ctx, *checkpoint)
 	} else {
-		restoreFileCheckpoint(ctx, checkpoint)
+		restoreFileCheckpoint(ctx, *checkpoint)
 	}
 
 	logger.Debug("restoring registers state")
@@ -99,13 +112,14 @@ func restoreCheckpoint(ctx *processContext, cpIndex int) {
 
 	logger.Debug("reverting breakpoints state")
 	ctx.bpointData = checkpoint.bpoints
-	insertMPIBreakpoint(ctx, MPI_BPOINTS[MPI_FUNCS.RECORD], true)
+	// insertMPIBreakpoint(ctx, MPI_BPOINTS[MPI_FUNCS.RECORD], true)
 
 	// remove subsequent checkpoints
-	ctx.cpointData = ctx.cpointData[:cpIndex+1]
+	// ctx.cpointData = ctx.cpointData[:cpIndex+1]
 
 	logger.Debug("checkpoint restore finished")
 
+	return nil
 }
 
 func restoreFileCheckpoint(ctx *processContext, checkpoint cPoint) {
@@ -142,8 +156,7 @@ func restoreForkCheckpoint(ctx *processContext, checkpoint cPoint) {
 }
 
 func createFileCheckpoint(ctx *processContext, opName string) cPoint {
-	regs, err := getRegs(ctx, false)
-	must(err)
+	regs := getRegs(ctx, false)
 
 	checkpointFile, err := os.CreateTemp("bin/temp", fmt.Sprintf("%v-cp-*", filepath.Base(ctx.targetFile)))
 
@@ -165,13 +178,12 @@ func createFileCheckpoint(ctx *processContext, opName string) cPoint {
 }
 
 func createForkCheckpoint(ctx *processContext, opName string) cPoint {
-	regs, err := getRegs(ctx, false)
-	must(err)
+	regs := getRegs(ctx, false)
 
 	stackMemRegions := proc.GetStackDataAddresses(ctx.pid)
 
 	checkpoint := cPoint{
-		pid:          int(getVariableFromMemory(ctx, "_MPI_CHECKPOINT_CHILD").(int32)),
+		pid:          int(getVariableFromMemory(ctx, "_MPI_CHECKPOINT_CHILD", true).(int32)),
 		opName:       opName,
 		regs:         regs,
 		stackRegions: stackMemRegions,
@@ -195,7 +207,6 @@ func writeCheckpointToFile(ctx *processContext, file *os.File, regions []proc.Me
 }
 
 func readMemoryContentsFromFile(checkpoint cPoint) {
-
 	file, err := os.Open(checkpoint.file)
 	must(err)
 

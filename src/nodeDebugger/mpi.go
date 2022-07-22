@@ -1,22 +1,45 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
+	"github.com/ottmartens/cc-rev-db/rpc"
 )
 
 type mpiFuncNames struct {
 	SIGNATURE string
 	SEND      string
 	RECEIVE   string
-	RECORD    string
+	FINALIZE  string
 }
 
 var MPI_FUNCS mpiFuncNames = mpiFuncNames{
 	SIGNATURE: "_MPI_WRAPPER_INCLUDE",
-	RECORD:    "MPI_WRAPPER_RECORD",
 	SEND:      "MPI_Send",
-	RECEIVE:   "MPI_Receive",
+	RECEIVE:   "MPI_Recv",
+	FINALIZE:  "MPI_Finalize",
+}
+
+type FunctionVariableMap map[string]VariableMap
+
+type VariableMap map[string]string
+
+var variablesToCapture FunctionVariableMap = FunctionVariableMap{
+	MPI_FUNCS.SEND: VariableMap{
+		"rank": "_MPI_WRAPPER_PROC_RANK",
+		"tag":  "tag",
+		"dest": "dest",
+	},
+	MPI_FUNCS.RECEIVE: VariableMap{
+		"rank":   "_MPI_WRAPPER_PROC_RANK",
+		"tag":    "tag",
+		"source": "source",
+	},
+	MPI_FUNCS.FINALIZE: VariableMap{
+		"rank": "_MPI_WRAPPER_PROC_RANK",
+	},
 }
 
 var MPI_BPOINTS map[string]*bpointData
@@ -54,23 +77,15 @@ func initMPIBreakpointsData(ctx *processContext) {
 	MPI_BPOINTS = make(map[string]*bpointData)
 
 	for _, function := range ctx.dwarfData.Mpi.Functions {
-
 		fName := function.Name()
 
 		funcEntries := ctx.dwarfData.GetEntriesForFunction(fName)
+		breakAddress := funcEntries[1].Address
 
-		var breakEntry dwarf.Entry
-
-		if fName == MPI_FUNCS.RECORD {
-			breakEntry = funcEntries[len(funcEntries)-1]
-		} else {
-			breakEntry = funcEntries[0]
-		}
-
-		originalInstruction := getOriginalInstruction(ctx, breakEntry.Address)
+		originalInstruction := getOriginalInstruction(ctx, breakAddress)
 
 		MPI_BPOINTS[fName] = &bpointData{
-			breakEntry.Address,
+			breakAddress,
 			originalInstruction,
 			function,
 			true,
@@ -89,13 +104,6 @@ func isMPIBpointSet(ctx *processContext, function *dwarf.Function) bool {
 	return false
 }
 
-var currentMPIFunc currentMPIFuncData
-
-type currentMPIFuncData struct {
-	addresses []uint64
-	function  *dwarf.Function
-}
-
 func reinsertMPIBPoints(ctx *processContext, currentBpoint *bpointData) {
 	for _, bp := range MPI_BPOINTS {
 		if bp.function.Name() != currentBpoint.function.Name() {
@@ -104,29 +112,27 @@ func reinsertMPIBPoints(ctx *processContext, currentBpoint *bpointData) {
 			}
 		}
 	}
-
 }
 
 func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
-
 	opName := bpoint.function.Name()
 
-	if opName != MPI_FUNCS.RECORD {
-		logger.Verbose("recording mpi operation %v", opName)
+	logger.Info("Recording MPI operation %v", opName)
+
+	checkpointId := createCheckpoint(ctx, opName)
+
+	record := rpc.MPICallRecord{
+		Id:         checkpointId,
+		OpName:     opName,
+		Parameters: make(map[string]string),
+		NodeId:     ctx.nodeData.id,
 	}
 
-	if opName == MPI_FUNCS.RECORD && !bpoint.isImmediateAfterRestore {
-		createCheckpoint(ctx, currentMPIFunc.function.Name())
-	}
-	// else {
-	// printVariable(ctx, "_MPI_CURRENT_DEST")
-	// printVariable(ctx, "_MPI_CURRENT_SOURCE")
-	// printVariable(ctx, "_MPI_CURRENT_TAG")
-	// }
-
-	currentMPIFunc = currentMPIFuncData{
-		addresses: make([]uint64, 0),
-		function:  bpoint.function,
+	for varName, identifier := range variablesToCapture[opName] {
+		variableValue := getVariableFromMemory(ctx, identifier, true)
+		record.Parameters[varName] = fmt.Sprintf("%v", variableValue)
 	}
 
+	logger.Debug("MPI Call record: %v", record)
+	reportMPICall(ctx, &record)
 }

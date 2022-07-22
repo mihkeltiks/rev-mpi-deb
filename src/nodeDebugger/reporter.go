@@ -8,19 +8,28 @@ import (
 	"github.com/ottmartens/cc-rev-db/rpc"
 )
 
-func reportCommandResult(cmd *command.Command) {
-	err := rpc.Client.Call("NodeReporter.ReportCommandResult", cmd, new(int))
+func reportAsHealthy(ctx *processContext) (nodeId int) {
+	err := ctx.nodeData.rpcClient.Call("NodeReporter.Register", os.Getpid(), &nodeId)
+	if err != nil {
+		logger.Error("Failed to report self as healthy: %v", err)
+		panic(err)
+	}
+
+	return nodeId
+}
+
+func reportCommandResult(ctx *processContext, cmd *command.Command) {
+	err := ctx.nodeData.rpcClient.Call("NodeReporter.CommandResult", cmd, new(int))
 	if err != nil {
 		logger.Error("Failed to report command result: %v", err)
 		panic(err)
 	}
 }
 
-func reportAsHealthy() (nodeId int) {
-	err := rpc.Client.Call("NodeReporter.Register", os.Getpid(), &nodeId)
+func reportMPICall(ctx *processContext, record *rpc.MPICallRecord) {
+	err := ctx.nodeData.rpcClient.Call("NodeReporter.MPICall", record, new(int))
 	if err != nil {
+		logger.Error("Failed to report MPI call: %v", err)
 		panic(err)
 	}
-
-	return nodeId
 }

@@ -6,6 +6,8 @@ import (
 
 	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
+	checkpointmanager "github.com/ottmartens/cc-rev-db/orchestrator/checkpointManager"
+	"github.com/ottmartens/cc-rev-db/rpc"
 )
 
 type NodeReporter int
@@ -25,7 +27,7 @@ func (r NodeReporter) Register(pid *int, reply *int) error {
 	return nil
 }
 
-func (r NodeReporter) ReportCommandResult(cmd *command.Command, reply *int) error {
+func (r NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 	nodeId := cmd.NodeId
 
 	if len(cmd.Result.Error) > 0 {
@@ -51,5 +53,12 @@ func (r NodeReporter) ReportCommandResult(cmd *command.Command, reply *int) erro
 		}
 	}
 
+	return nil
+}
+
+func (r NodeReporter) MPICall(callRecord rpc.MPICallRecord, reply *int) error {
+	logger.Info("Node %v reported MPI call: %v", callRecord.NodeId, callRecord)
+
+	checkpointmanager.RecordCheckpoint(callRecord)
 	return nil
 }

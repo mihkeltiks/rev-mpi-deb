@@ -19,7 +19,7 @@ type node struct {
 func (n node) getConnection() *rpc.RPCClient {
 	nodeAddress, _ := url.Parse(fmt.Sprintf("localhost:%d", 3500+n.id))
 
-	return rpc.Client.Connect(nodeAddress)
+	return rpc.Connect(nodeAddress)
 }
 
 // keys - node ids

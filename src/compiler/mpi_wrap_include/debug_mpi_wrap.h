@@ -1,35 +1,15 @@
 #include <mpi.h>
-#include <signal.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
+
+int _MPI_WRAPPER_PROC_RANK;
 
 void _MPI_WRAPPER_INCLUDE() {}
 
-int _MPI_CURRENT_SOURCE;
-int _MPI_CURRENT_DEST;
-int _MPI_CURRENT_TAG;
-
-int _MPI_CHECKPOINT_CHILD;
-
-void _MPI_WRAPPER_RECORD(
-    const void *buf,
-    int count,
-    MPI_Datatype datatype,
-    int source,
-    int dest,
-    int tag,
-    MPI_Comm comm,
-    MPI_Status *status)
-{
-    _MPI_CURRENT_DEST = dest;
-    _MPI_CURRENT_SOURCE = source;
-    _MPI_CURRENT_TAG = tag;
-}
-
 int _MPI_Init(int *argc, char ***argv)
 {
-    return MPI_Init(argc, argv);
+    int ret = MPI_Init(argc, argv);
+    // Record process rank on comm_world
+    MPI_Comm_rank(MPI_COMM_WORLD, &_MPI_WRAPPER_PROC_RANK);
+    return ret;
 }
 
 int _MPI_Comm_size(MPI_Comm comm, int *size)
@@ -50,13 +30,11 @@ int _MPI_Finalize()
 int _MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
               int tag, MPI_Comm comm)
 {
-    _MPI_WRAPPER_RECORD(buf, count, datatype, -1, dest, tag, comm, NULL);
     return MPI_Send(buf, count, datatype, dest, tag, comm);
 }
 
 int _MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source,
               int tag, MPI_Comm comm, MPI_Status *status)
 {
-    _MPI_WRAPPER_RECORD(buf, count, datatype, source, -1, tag, comm, status);
     return MPI_Recv(buf, count, datatype, source, tag, comm, status);
 }

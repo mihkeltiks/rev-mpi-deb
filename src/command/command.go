@@ -17,25 +17,32 @@ type CommandResult struct {
 }
 
 const (
-	Bpoint CommandCode = iota
+	Quit CommandCode = iota
+	Help
+
+	// Global commands - executed on orchestrator
+	ListCheckpoints
+	GlobalRollback
+
+	// Node-specific commands - executed on designated node
+	Bpoint
 	SingleStep
 	Cont
 	Restore
 	Print
-	Quit
-	Help
 	PrintInternal
 )
 
 func (c Command) String() string {
 	codeStr := map[CommandCode]string{
-		Bpoint:        "breakpoint",
-		SingleStep:    "single-step",
-		Cont:          "continue",
-		Restore:       "restore",
-		Print:         "print",
-		Help:          "help",
-		PrintInternal: "print-internal",
+		Bpoint:          "breakpoint",
+		SingleStep:      "single-step",
+		Cont:            "continue",
+		Restore:         "restore",
+		Print:           "print",
+		Help:            "help",
+		PrintInternal:   "print-internal",
+		ListCheckpoints: "list-checkpoints",
 	}[c.Code]
 
 	if c.Argument == nil {

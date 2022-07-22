@@ -124,7 +124,7 @@ func parseCommandFromString(input string) (c *command.Command) {
 	printRegexp := regexp.MustCompile(`^p [a-zA-Z_][a-zA-Z0-9_]*$`)
 	printInternalRegexp := regexp.MustCompile(`^pd [a-zA-Z_][a-zA-Z0-9_]*$`)
 
-	restoreRegexp := regexp.MustCompile(`^r\s*[0-9]*$`)
+	restoreRegexp := regexp.MustCompile(`^r .+$`)
 
 	switch {
 	case breakPointRegexp.Match([]byte(input)):

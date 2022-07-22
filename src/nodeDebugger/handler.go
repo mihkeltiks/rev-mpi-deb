@@ -37,9 +37,9 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	case command.Cont:
 		exited = continueExecution(ctx, false)
 	case command.Restore:
-		cpIndex := len(ctx.cpointData) - (1 + cmd.Argument.(int))
+		checkpointId := cmd.Argument.(string)
 
-		restoreCheckpoint(ctx, cpIndex)
+		err = restoreCheckpoint(ctx, checkpointId)
 	case command.Print:
 		printVariable(ctx, cmd.Argument.(string))
 	case command.Quit:
@@ -64,6 +64,8 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 			}
 
 			if bpoint.isMPIBpoint {
+				ctx.stack = getStack(ctx)
+
 				recordMPIOperation(ctx, bpoint)
 
 				reinsertMPIBPoints(ctx, bpoint)
@@ -149,7 +151,7 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 }
 
 func printVariable(ctx *processContext, varName string) {
-	value := getVariableFromMemory(ctx, varName)
+	value := getVariableFromMemory(ctx, varName, false)
 	if value == nil {
 		return
 	}
@@ -158,18 +160,20 @@ func printVariable(ctx *processContext, varName string) {
 }
 
 // Retrieves the value of a variable matching the specified idendifier, if present in the target
-func getVariableFromMemory(ctx *processContext, identifier string) (value interface{}) {
+func getVariableFromMemory(ctx *processContext, identifier string, suppressLogging bool) (value interface{}) {
 	var variable *dwarf.Variable
 	var variableStackFunction *stackFunction
 
 	// Process the call stack to find the matching variable
 	for _, stackFunction := range ctx.stack {
-		logger.Info("stack fn %v", stackFunction.function.Name())
 		// Look for the variable declared in the stack function
 		variable = ctx.dwarfData.LookupVariableInFunction(stackFunction.function, identifier)
 
 		if variable != nil {
-			logger.Verbose("Referring to variable %v as declared in function %v", identifier, stackFunction.function.Name())
+			if !suppressLogging {
+				logger.Debug("Referring to variable %v as declared in function %v", identifier, stackFunction.function.Name())
+			}
+
 			variableStackFunction = stackFunction
 			break
 		}
@@ -178,7 +182,10 @@ func getVariableFromMemory(ctx *processContext, identifier string) (value interf
 		matchingParameter := stackFunction.lookupParameter(identifier)
 
 		if matchingParameter != nil {
-			logger.Verbose("Referring to variable %v as function parameter for function %v", identifier, stackFunction.function.Name())
+			if !suppressLogging {
+				logger.Verbose("Referring to variable %v as function parameter for function %v", identifier, stackFunction.function.Name())
+			}
+
 			variable = matchingParameter.AsVariable()
 			variableStackFunction = stackFunction
 			break
@@ -189,12 +196,18 @@ func getVariableFromMemory(ctx *processContext, identifier string) (value interf
 		// Look for a global variable
 		variable = ctx.dwarfData.LookupVariable(identifier)
 		if variable != nil {
-			logger.Verbose("Referring to variable %v as a global variable", identifier)
+
+			if !suppressLogging {
+				logger.Verbose("Referring to variable %v as a global variable", identifier)
+			}
 		}
 	}
 
 	if variable == nil {
-		logger.Info("Cannot locate variable: %s", identifier)
+		if !suppressLogging {
+			logger.Info("Cannot locate variable: %s", identifier)
+		}
+
 		return nil
 	}
 
@@ -245,7 +258,7 @@ func convertValueToType(data []byte, variable *dwarf.Variable) interface{} {
 	case 8:
 		value = int64(binary.LittleEndian.Uint64(data))
 	default:
-		fmt.Printf("unknown bytesize? %v\n", variable)
+		logger.Error("unknown bytesize %v\n", variable)
 	}
 
 	return value
@@ -263,7 +276,7 @@ func printInternalData(ctx *processContext, varName string) {
 		logger.Info("proc/id/maps:")
 		proc.LogMapsFile(ctx.pid)
 	case "loc":
-		regs, _ := getRegs(ctx, false)
+		regs := getRegs(ctx, false)
 		line, fileName, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)
 		logger.Info("currently at line %v in %v (func %v) ip:%#x", line, filepath.Base(fileName), fn.Name(), regs.Rip)
 	case "cp":

@@ -99,13 +99,29 @@ func matchPidRegexp(input string, exp string) bool {
 
 func parseCommandFromString(input string) (c *command.Command) {
 
+	// Global commands (executed on orchestrator)
+
 	if input == "help" {
-		return &command.Command{NodeId: -1, Code: command.Help, Argument: nil}
+		return &command.Command{Code: command.Help}
 	}
 
 	if input == "q" {
-		return &command.Command{NodeId: -1, Code: command.Quit, Argument: nil}
+		return &command.Command{Code: command.Quit}
 	}
+
+	if input == "cp" { // list recorded checkpoints
+		return &command.Command{Code: command.ListCheckpoints}
+	}
+
+	pieces := strings.Split(input, " ")
+
+	matchesGlobalRestore := regexp.MustCompile("^r .+").Match([]byte(input))
+	if matchesGlobalRestore { // rollback operation (across n>=1 nodes)
+		checkpointId := pieces[1]
+		return &command.Command{Code: command.GlobalRollback, Argument: checkpointId}
+	}
+
+	// Node-specific commands (relayed to designated node for execution)
 
 	matchesPidRegexp := regexp.MustCompile(`^\d+ .+`).Match([]byte(input))
 
@@ -113,8 +129,6 @@ func parseCommandFromString(input string) (c *command.Command) {
 		logger.Warn("error parsing break command - no pid specified")
 		return nil
 	}
-
-	pieces := strings.Split(input, " ")
 
 	pid, _ := strconv.Atoi(pieces[0])
 
@@ -127,24 +141,20 @@ func parseCommandFromString(input string) (c *command.Command) {
 		return &command.Command{NodeId: pid, Code: command.Bpoint, Argument: lineNr}
 
 	case matchPidRegexp(input, "[c|C]"): // continue
-		return &command.Command{NodeId: pid, Code: command.Cont, Argument: nil}
+		return &command.Command{NodeId: pid, Code: command.Cont}
 
 	case matchPidRegexp(input, "[s|S]"): // single step
-		return &command.Command{NodeId: pid, Code: command.SingleStep, Argument: nil}
+		return &command.Command{NodeId: pid, Code: command.SingleStep}
 
 	case matchPidRegexp(input, `[p|P] [a-zA-Z_][a-zA-Z0-9_]*`): // print variable
 		identifier := strings.Split(input, " ")[2]
 
 		return &command.Command{NodeId: pid, Code: command.Print, Argument: identifier}
 
-	case matchPidRegexp(input, `[r|R] [0-9]*`): // restore
+	case matchPidRegexp(input, `[r|R] .+`): // restore checkpoint with supplied id
+		checkpointId := pieces[2]
 
-		index := 0
-		if len(pieces) > 2 {
-			index, _ = strconv.Atoi(pieces[2])
-		}
-
-		return &command.Command{NodeId: pid, Code: command.Restore, Argument: index}
+		return &command.Command{NodeId: pid, Code: command.Restore, Argument: checkpointId}
 
 	case matchPidRegexp(input, `pd [a-zA-Z_][a-zA-Z0-9_]*`): // debug print
 		varName := strings.Split(input, " ")[2]
@@ -154,4 +164,23 @@ func parseCommandFromString(input string) (c *command.Command) {
 	default:
 		return nil
 	}
+}
+
+func askForRollbackCommit() bool {
+	var s string
+
+	fmt.Printf("Commit rollback? (y/n): ")
+	_, err := fmt.Scan(&s)
+	if err != nil {
+		panic(err)
+	}
+
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+
+	if s == "y" || s == "yes" {
+		return true
+	}
+
+	return false
 }

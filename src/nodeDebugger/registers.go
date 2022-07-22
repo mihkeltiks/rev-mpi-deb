@@ -9,27 +9,21 @@ import (
 )
 
 func logRegistersState(ctx *processContext) {
-	regs, _ := getRegs(ctx, false)
+	regs := getRegs(ctx, false)
 
 	line, fileName, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
 
 	logger.Debug("instruction pointer: %#x (line %d in %s)\n", regs.Rip, line, fileName)
-
-	// data := make([]byte, 4)
-	// syscall.PtracePeekData(ctx.pid, uintptr(regs.Rip), data)
-	// logger.Debug("ip pointing to: %v\n", data)
 }
 
-func getRegs(ctx *processContext, rewindIP bool) (*syscall.PtraceRegs, error) {
+func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
 	var regs syscall.PtraceRegs
 
 	err := syscall.PtraceGetRegs(ctx.pid, &regs)
 
 	if err != nil {
-		logger.Warn("error getting registers, retrying in 1 sec")
-
-		return nil, err
-
+		logger.Error("error getting registers: %v", err)
+		must(err)
 	}
 
 	// if currently stopped by a breakpoint, rewind the instruction pointer by 1
@@ -38,12 +32,11 @@ func getRegs(ctx *processContext, rewindIP bool) (*syscall.PtraceRegs, error) {
 		regs.Rip -= 1
 	}
 
-	return &regs, nil
+	return &regs
 }
 
 func printRegs(ctx *processContext) {
-	regs, err := getRegs(ctx, false)
-	must(err)
+	regs := getRegs(ctx, false)
 
 	s := reflect.ValueOf(regs).Elem()
 	typeOfT := s.Type()

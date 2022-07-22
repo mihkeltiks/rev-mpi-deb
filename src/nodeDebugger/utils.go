@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path"
@@ -38,8 +39,6 @@ func executeOnProcess(ctx *processContext, targetPid int, function fn) {
 }
 
 func cleanup() {
-	logger.Debug("removing temporary files..")
-
 	removeTempFiles()
 }
 
@@ -49,31 +48,15 @@ func precleanup() {
 }
 
 func removeTempFiles() {
+	logger.Debug("removing temporary files..")
 
-	// could use os.TempDir()
 	dir, _ := ioutil.ReadDir("bin/temp")
 
 	for _, d := range dir {
 		if d.Name() != ".gitkeep" {
-			os.RemoveAll(path.Join([]string{"bin/temp", d.Name()}...))
-		}
-
-	}
-
-}
-
-// wait while preventing the thread from sleeping
-// (contrary to time.Sleep() which causes issues with ptrace)
-func waitWithoutSleep(d time.Duration) {
-	start := time.Now().UnixNano()
-	logger.Warn("starting wait")
-	for {
-
-		if time.Now().UnixNano() > start+int64(d) {
-			break
+			os.Remove(path.Join("bin/temp", d.Name()))
 		}
 	}
-	logger.Warn("ended wait")
 }
 
 func PrintPSInfo(pid int) {
@@ -88,4 +71,17 @@ func PrintPSInfo(pid int) {
 
 	err = cmd.Wait()
 	must(err)
+}
+
+func randomId() string {
+	rand.Seed(time.Now().UnixNano())
+
+	length := 10
+	var letters = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
+
+	runes := make([]rune, length)
+	for i := range runes {
+		runes[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(runes)
 }

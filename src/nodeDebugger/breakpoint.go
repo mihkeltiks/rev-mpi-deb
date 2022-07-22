@@ -21,7 +21,7 @@ type bpointData struct {
 
 func (b *bpointData) String() string {
 	if b.function != nil {
-		return fmt.Sprintf("{address: %#x (%v)}", b.address, b.function.Name())
+		return fmt.Sprintf("{address: %#x (func %v)}", b.address, b.function.Name())
 	}
 	return fmt.Sprintf("{address: %#x}", b.address)
 }
@@ -69,8 +69,7 @@ func getOriginalInstruction(ctx *processContext, address uint64) (originalInstru
 
 // restores the original instruction if the executable is currently caught at a breakpoint
 func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, registers *syscall.PtraceRegs) {
-	regs, err := getRegs(ctx, true)
-	must(err)
+	regs := getRegs(ctx, true)
 
 	// line, file, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)
 	// logger.Debug("looking to restore bpoint at %#x (line %d in %s, func: %v)", regs.Rip, line, filepath.Base(file), fn.Name())
@@ -90,7 +89,7 @@ func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, regi
 	}
 
 	// replace the break instruction with the original instruction
-	_, err = syscall.PtracePokeData(ctx.pid, uintptr(regs.Rip), bpoint.originalInstruction)
+	_, err := syscall.PtracePokeData(ctx.pid, uintptr(regs.Rip), bpoint.originalInstruction)
 	must(err)
 
 	// set the rewinded instruction pointer
