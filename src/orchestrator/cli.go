@@ -48,10 +48,12 @@ func printInstructions() {
 	fmt.Print("\nAvailable commands:\n\n")
 
 	fmt.Println("  <nid> b <lineNr> \tset breakpoint")
-	fmt.Println("  <nid> s \t\tsingle singleStep forward")
+	fmt.Println("  <nid> s \t\tsingle-step forward")
 	fmt.Println("  <nid> c \t\tcontinue execution")
-	fmt.Println("  <nid> r <cp index> \trestore checkpoint")
 	fmt.Println("  <nid> p <var>  \tprint a variable")
+	fmt.Println("        cp  \t\tlist recorded checkpoints")
+	fmt.Println("        r <checkpoint id>  \trollback to checkpoint")
+
 	fmt.Println("        q  \t\tquit")
 	fmt.Println("     help  \t\tshow this again")
 	fmt.Println()

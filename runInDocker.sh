@@ -1,2 +1,2 @@
 # bin/sh
-docker run --rm -i mpi-debugger $1 $2 $3
+docker run --rm -i mpi--cc-rev-debugger $1 $2 $3

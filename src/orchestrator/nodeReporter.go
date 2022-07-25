@@ -6,7 +6,7 @@ import (
 
 	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
-	checkpointmanager "github.com/ottmartens/cc-rev-db/orchestrator/checkpointManager"
+	checkpointmanager "github.com/ottmartens/cc-rev-db/orchestrator/checkpointmanager"
 	"github.com/ottmartens/cc-rev-db/rpc"
 )
 

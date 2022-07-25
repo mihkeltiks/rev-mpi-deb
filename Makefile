@@ -5,8 +5,8 @@ build:
 	cd src/orchestrator && go build -o ../../bin/orchestrator *.go
 	cd src/compiler && go build -o ../../bin/compiler *.go
 
-docker:
-	make && docker build -t mpi-debugger .
+dockerimage:
+	docker build -t mpi--cc-rev-debugger .
 
 testRunner:
     ifeq ($(UNAME_S),Linux)

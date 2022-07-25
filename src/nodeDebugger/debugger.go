@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
@@ -18,17 +19,16 @@ import (
 const MAIN_FN = "main"
 
 type processContext struct {
-	targetFile     string             // the executing binary file
-	sourceFile     string             // source code file
-	dwarfData      *dwarf.DwarfData   // dwarf debug information about the binary
-	process        *exec.Cmd          // the running binary
-	pid            int                // the process id of the running binary
-	bpointData     breakpointData     // holds the instuctions for currently replaced by breakpoints
-	cpointData     checkpointData     // holds data about currently recorded checkppoints
-	checkpointMode CheckpointMode     // whether checkpoints are recorded in files or in forked processes
-	commandQueue   []*command.Command // commands scheduled for execution by orchestrator
-	stack          programStack       // current call stack of the target. updated after each command execution
-	nodeData       *nodeData          // data about connection with the orchestrator
+	targetFile     string           // the executing binary file
+	sourceFile     string           // source code file
+	dwarfData      *dwarf.DwarfData // dwarf debug information about the binary
+	process        *exec.Cmd        // the running binary
+	pid            int              // the process id of the running binary
+	bpointData     breakpointData   // holds the instuctions for currently replaced by breakpoints
+	cpointData     checkpointData   // holds data about currently recorded checkppoints
+	checkpointMode CheckpointMode   // whether checkpoints are recorded in files or in forked processes
+	stack          programStack     // current call stack of the target. updated after each command execution
+	nodeData       *nodeData        // data about connection with the orchestrator
 }
 
 type nodeData struct {
@@ -85,31 +85,29 @@ func main() {
 }
 
 func handleRemoteWorkflow(ctx *processContext) {
-	port := 3500 + ctx.nodeData.id
+	// channel for commands scheduled for execution by orchestrator
+	commandQueue := make(chan *command.Command, 10)
 
 	go func() {
+		port := 3500 + ctx.nodeData.id
 		rpc.InitializeServer(port, func(register rpc.Registrator) {
 			logger.Verbose("Registering debugging methods for remote use")
 
-			register(&RemoteCmdHandler{ctx})
+			register(&RemoteCmdHandler{ctx, commandQueue})
 		})
 	}()
 
 	for {
-		// TODO: use a channel
-		if len(ctx.commandQueue) > 0 {
-			cmd := ctx.commandQueue[0]
+		cmd := <-commandQueue
 
-			handleCommand(ctx, cmd)
+		handleCommand(ctx, cmd)
 
-			reportCommandResult(ctx, cmd)
+		reportCommandResult(ctx, cmd)
 
-			if cmd.Result.Exited {
-				logger.Info("Exiting")
-				break
-			}
-
-			ctx.commandQueue = ctx.commandQueue[1:]
+		if cmd.Result.Exited {
+			time.Sleep(time.Second * 10)
+			logger.Info("Exiting")
+			break
 		}
 	}
 }

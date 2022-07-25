@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"time"
 	"unsafe"
 
@@ -84,4 +85,13 @@ func randomId() string {
 		runes[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(runes)
+}
+
+// Returns the directory of the currently running executable
+func getExecutableDir() string {
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Dir(ex)
 }

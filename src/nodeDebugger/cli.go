@@ -52,7 +52,7 @@ func printInstructions() {
 	fmt.Print("\nAvailable commands:\n\n")
 
 	fmt.Println("  b <lineNr> \t set breakpoint")
-	fmt.Println("  s  \t\t single singleStep forward")
+	fmt.Println("  s  \t\t single-step forward")
 	fmt.Println("  c  \t\t continue execution")
 	fmt.Println("  r <cp index> \t restore checkpoint")
 	fmt.Println("  p <var>  \t print a variable")

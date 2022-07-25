@@ -14,12 +14,13 @@ import (
 )
 
 type RemoteCmdHandler struct {
-	ctx *processContext
+	ctx          *processContext
+	commandQueue chan<- *command.Command
 }
 
 func (r RemoteCmdHandler) Handle(cmd *command.Command, reply *int) error {
 	logger.Debug("Scheduling command for execution %+v", cmd)
-	r.ctx.commandQueue = append(r.ctx.commandQueue, cmd)
+	r.commandQueue <- cmd
 	return nil
 }
 
@@ -38,7 +39,6 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 		exited = continueExecution(ctx, false)
 	case command.Restore:
 		checkpointId := cmd.Argument.(string)
-
 		err = restoreCheckpoint(ctx, checkpointId)
 	case command.Print:
 		printVariable(ctx, cmd.Argument.(string))
