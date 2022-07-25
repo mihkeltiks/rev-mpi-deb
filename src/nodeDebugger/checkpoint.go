@@ -76,7 +76,6 @@ func createCheckpoint(ctx *processContext, opName string) string {
 }
 
 func restoreCheckpoint(ctx *processContext, checkpointId string) error {
-
 	var checkpoint *cPoint
 
 	for _, cp := range ctx.cpointData {
@@ -105,14 +104,8 @@ func restoreCheckpoint(ctx *processContext, checkpointId string) error {
 	err := syscall.PtraceSetRegs(ctx.pid, checkpoint.regs)
 	must(err)
 
-	// regs := getRegs(ctx, false)
-	// logger.Debug("registers before restore, %+v", regs)
-
-	// logger.Debug("registers after restore, %+v", checkpoint.regs)
-
 	logger.Debug("reverting breakpoints state")
 	ctx.bpointData = checkpoint.bpoints
-	// insertMPIBreakpoint(ctx, MPI_BPOINTS[MPI_FUNCS.RECORD], true)
 
 	// remove subsequent checkpoints
 	// ctx.cpointData = ctx.cpointData[:cpIndex+1]
@@ -158,7 +151,7 @@ func restoreForkCheckpoint(ctx *processContext, checkpoint cPoint) {
 func createFileCheckpoint(ctx *processContext, opName string) cPoint {
 	regs := getRegs(ctx, false)
 
-	checkpointFile, err := os.CreateTemp("bin/temp", fmt.Sprintf("%v-cp-*", filepath.Base(ctx.targetFile)))
+	checkpointFile, err := os.CreateTemp(fmt.Sprintf("%v/temp", getExecutableDir()), fmt.Sprintf("%v-cp-*", filepath.Base(ctx.targetFile)))
 
 	regions := proc.GetFileCheckpointDataAddresses(ctx.pid, ctx.targetFile)
 
@@ -198,8 +191,8 @@ func writeCheckpointToFile(ctx *processContext, file *os.File, regions []proc.Me
 
 	contents := proc.ReadFromMemFileByRegions(ctx.pid, regions)
 
-	for index, chunk := range contents {
-		logger.Debug("writing chunk %v to cp file - size %v", regions[index].Ident, len(chunk))
+	for _, chunk := range contents {
+		// logger.Debug("writing chunk %v to cp file - size %v", regions[index].Ident, len(chunk))
 		file.Write(chunk)
 	}
 
