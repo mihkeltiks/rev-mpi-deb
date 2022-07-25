@@ -7,7 +7,7 @@ _in development_
 ---
 
 ## Running on linux
-currently only x86_64 architecture is supported
+currently only x86 architecture is supported
 
 ### build
 ```bash
