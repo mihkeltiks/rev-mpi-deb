@@ -5,14 +5,16 @@ WORKDIR /app
 
 COPY . .
 
-RUN chmod -R 755 .
+RUN  make
+
+# Compile the example MPI programs
+RUN bin/compiler examples/send-receive.c
+# RUN bin/compiler examples/broadcast.c
+
+
+RUN chmod -R 777 .
 
 RUN useradd -u 1234 dockerUser
 USER dockerUser
 
-# RUN  make compiler
-# RUN  make
-
-# RUN bin/compiler examples/hello.c
-
-# ENTRYPOINT [ "./bin/node-debugger" ]
+# ENTRYPOINT [ "./bin/orchestrator" ]
