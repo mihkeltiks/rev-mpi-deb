@@ -9,27 +9,33 @@ import (
 	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/orchestrator/checkpointmanager"
+	"github.com/ottmartens/cc-rev-db/orchestrator/gui"
 	"github.com/ottmartens/cc-rev-db/rpc"
 )
 
-const NODE_DEBUGGER_PATH = "bin/node-debugger"
+var NODE_DEBUGGER_PATH = fmt.Sprintf("%s/node-debugger", getExecutableDir())
+
 const ORCHESTRATOR_PORT = 3490
 
 func main() {
-	// logger.SetMaxLogLevel(logger.Levels.Verbose)
-
+	logger.SetMaxLogLevel(logger.Levels.Verbose)
 	numProcesses, targetPath := parseArgs()
+
+	// start goroutine for collecting checkpoint results
+	checkpointRecordChan := make(chan rpc.MPICallRecord)
+	go startCheckpointRecordCollector(checkpointRecordChan)
 
 	// start rpc server in separate goroutine
 	go func() {
 		rpc.InitializeServer(ORCHESTRATOR_PORT, func(register rpc.Registrator) {
 			register(new(logger.LoggerServer))
-			register(new(NodeReporter))
+			register(&NodeReporter{checkpointRecordChan})
 		})
 	}()
 
 	logger.Info("executing %v as an mpi job with %d processes", targetPath, numProcesses)
 
+	// Start the MPI job
 	mpiProcess := exec.Command(
 		"mpirun",
 		"-np",
@@ -40,11 +46,14 @@ func main() {
 	)
 
 	mpiProcess.Stdout = os.Stdout
-	mpiProcess.Stderr = os.Stderr
+	// mpiProcess.Stderr = os.Stderr
 
 	err := mpiProcess.Start()
 	must(err)
 
+	defer quit()
+
+	// asyncronously wait for the MPI job to finish
 	go func() {
 		mpiProcess.Wait()
 
@@ -58,10 +67,6 @@ func main() {
 	time.Sleep(time.Second)
 	connectToAllNodes(numProcesses)
 
-	defer stopAllNodes()
-
-	time.Sleep(time.Second)
-
 	printInstructions()
 
 	for {
@@ -69,8 +74,7 @@ func main() {
 
 		switch cmd.Code {
 		case command.Quit:
-			logger.Info("👋 exiting")
-			return
+			quit()
 		case command.Help:
 			printInstructions()
 			break
@@ -111,4 +115,14 @@ func handleRollbackSubmission(cmd *command.Command) {
 	} else {
 		logger.Error("Distributed rollback failed")
 	}
+}
+
+func quit() {
+	stopAllNodes()
+	gui.Stop()
+
+	time.Sleep(time.Second)
+	logger.Info("👋 exiting")
+	time.Sleep(time.Second)
+	os.Exit(0)
 }

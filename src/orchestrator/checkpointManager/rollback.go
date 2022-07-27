@@ -6,7 +6,7 @@ import (
 )
 
 // holds the checkpoints to be restored, obtained from the submission of a rollback command
-type RollbackMap map[nodeId]checkpointRecord
+type RollbackMap map[NodeId]checkpointRecord
 
 // returns which (additional) checkpoints need to be rolled back
 // if the supplied checkpoint is to be restored
@@ -21,8 +21,8 @@ func SubmitForRollback(cmd *command.Command) *RollbackMap {
 		return nil
 	}
 
-	if !originalCheckpoint.canBeRestored {
-		logger.Warn("Checkpoint of type %v cannot be restored", originalCheckpoint.opNname)
+	if !originalCheckpoint.CanBeRestored {
+		logger.Warn("Checkpoint of type %v cannot be restored", originalCheckpoint.OpName)
 		return nil
 	}
 
@@ -35,7 +35,7 @@ func SubmitForRollback(cmd *command.Command) *RollbackMap {
 	// TEMP
 	for nodeId, nodeCheckpoints := range checkpointLog {
 		for _, cp := range nodeCheckpoints {
-			if cp.canBeRestored {
+			if cp.CanBeRestored {
 				rollbackPointsPerNode[nodeId] = cp
 				break
 			}

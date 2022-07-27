@@ -56,8 +56,8 @@ func stopAllNodes() {
 	for _, node := range registeredNodes {
 		if node.client != nil {
 			logger.Debug("Stopping node %v", node.id)
+			handleRemotely(&command.Command{NodeId: node.id, Code: command.Quit})
 
-			node.client.Call("RemoteCommand.Quit", new(int), new(int))
 			node.client = nil
 		}
 	}

@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"runtime"
 	"syscall"
-	"time"
 
 	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
@@ -105,7 +104,6 @@ func handleRemoteWorkflow(ctx *processContext) {
 		reportCommandResult(ctx, cmd)
 
 		if cmd.Result.Exited {
-			time.Sleep(time.Second * 10)
 			logger.Info("Exiting")
 			break
 		}

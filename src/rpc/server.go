@@ -25,7 +25,7 @@ func InitializeServer(port int, registerComponents func(Registrator)) {
 
 	listener, err := net.Listen("tcp", serverAddress)
 	if err != nil {
-		logger.Error("logger server listen error:", err)
+		logger.Error("logger server listen error: %v", err)
 		panic(err)
 	} else {
 		logger.Verbose("rpc server listening on address: %v", serverAddress)
