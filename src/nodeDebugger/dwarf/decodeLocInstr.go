@@ -47,14 +47,12 @@ type DwarfRegisters struct {
 	ObjBase   int64
 	regs      []*DwarfRegister
 
-	ByteOrder  binary.ByteOrder
-	PCRegNum   uint64
-	SPRegNum   uint64
-	BPRegNum   uint64
-	LRRegNum   uint64
-	ChangeFunc RegisterChangeFunc
+	ByteOrder binary.ByteOrder
+	PCRegNum  uint64
+	SPRegNum  uint64
+	BPRegNum  uint64
+	LRRegNum  uint64
 
-	FloatLoadError   error // error produced when loading floating point registers
 	loadMoreCallback func()
 }
 
@@ -64,8 +62,6 @@ type DwarfRegister struct {
 }
 
 const arbitraryExecutionLimitFactor = 10
-
-type RegisterChangeFunc func(regNum uint64, reg *DwarfRegister) error
 
 func ExecuteStackProgram(regs DwarfRegisters, instructions []byte, ptrSize int, readMemory ReadMemoryFunc) (int64, []Piece, error) {
 	ctxt := &context{

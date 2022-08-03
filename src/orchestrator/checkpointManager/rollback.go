@@ -59,17 +59,6 @@ func SubmitForRollback(checkpointId string) *RollbackMap {
 		}
 	}
 
-	// // TEMP
-	// for nodeId, nodeCheckpoints := range checkpointLog {
-	// 	for _, cp := range nodeCheckpoints {
-	// 		if cp.CanBeRestored {
-	// 			rollbackPointsPerNode[nodeId] = *cp
-	// 			break
-	// 		}
-	// 	}
-
-	// }
-
 	pendingRollback = &rollbackPointsPerNode
 
 	return pendingRollback

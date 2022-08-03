@@ -1,7 +1,5 @@
 package dwarf
 
-//lint:file-ignore U1000 ignore unused helpers
-
 import (
 	"fmt"
 	"unsafe"

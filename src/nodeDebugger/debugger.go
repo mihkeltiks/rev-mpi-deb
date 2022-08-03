@@ -1,7 +1,5 @@
 package main
 
-//lint:file-ignore U1000 ignore unused helpers
-
 import (
 	"io"
 	"os"
