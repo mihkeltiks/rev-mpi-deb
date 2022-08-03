@@ -7,6 +7,7 @@ import (
 
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
+	"github.com/ottmartens/cc-rev-db/utils"
 )
 
 type breakpointData map[uint64]*bpointData
@@ -48,11 +49,11 @@ func insertBreakpoint(ctx *processContext, breakpointAddress uint64) (originalIn
 	originalInstruction = make([]byte, len(interruptCode))
 
 	_, err := syscall.PtracePeekData(ctx.pid, uintptr(breakpointAddress), originalInstruction)
-	must(err)
+	utils.Must(err)
 
 	// set breakpoint (insert interrupt code at the address)
 	_, err = syscall.PtracePokeData(ctx.pid, uintptr(breakpointAddress), interruptCode)
-	must(err)
+	utils.Must(err)
 
 	return originalInstruction
 }
@@ -90,11 +91,11 @@ func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, regi
 
 	// replace the break instruction with the original instruction
 	_, err := syscall.PtracePokeData(ctx.pid, uintptr(regs.Rip), bpoint.originalInstruction)
-	must(err)
+	utils.Must(err)
 
 	// set the rewinded instruction pointer
 	err = syscall.PtraceSetRegs(ctx.pid, regs)
-	must(err)
+	utils.Must(err)
 
 	// remove record of breakpoint
 	delete(ctx.bpointData, bpoint.address)

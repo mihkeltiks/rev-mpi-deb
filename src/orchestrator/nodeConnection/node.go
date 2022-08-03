@@ -1,12 +1,12 @@
-package main
+package nodeconnection
 
 import (
 	"fmt"
 	"net/url"
 
-	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/rpc"
+	"github.com/ottmartens/cc-rev-db/utils/command"
 )
 
 type node struct {
@@ -25,17 +25,17 @@ func (n node) getConnection() *rpc.RPCClient {
 // keys - node ids
 type nodeMap map[int]*node
 
-func (n nodeMap) ids() []int {
-	nodeIds := make([]int, 0, len(n))
-	for nodeId := range n {
+var registeredNodes nodeMap = make(nodeMap)
+
+func GetRegisteredIds() []int {
+	nodeIds := make([]int, 0, len(registeredNodes))
+	for nodeId := range registeredNodes {
 		nodeIds = append(nodeIds, nodeId)
 	}
 	return nodeIds
 }
 
-var registeredNodes nodeMap = make(nodeMap)
-
-func connectToAllNodes(desiredNodeCount int) {
+func ConnectToAllNodes(desiredNodeCount int) {
 	for _, node := range registeredNodes {
 
 		if node.client == nil {
@@ -49,16 +49,5 @@ func connectToAllNodes(desiredNodeCount int) {
 		logger.Info("Connected to all nodes")
 	} else {
 		panic(fmt.Sprintf("%d nodes connected, want %d", len(registeredNodes), desiredNodeCount))
-	}
-}
-
-func stopAllNodes() {
-	for _, node := range registeredNodes {
-		if node.client != nil {
-			logger.Debug("Stopping node %v", node.id)
-			handleRemotely(&command.Command{NodeId: node.id, Code: command.Quit})
-
-			node.client = nil
-		}
 	}
 }

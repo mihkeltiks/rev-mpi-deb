@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/rpc"
+	"github.com/ottmartens/cc-rev-db/utils/command"
 )
 
 func reportAsHealthy(ctx *processContext) (nodeId int) {
@@ -22,6 +22,14 @@ func reportCommandResult(ctx *processContext, cmd *command.Command) {
 	err := ctx.nodeData.rpcClient.Call("NodeReporter.CommandResult", cmd, new(int))
 	if err != nil {
 		logger.Error("Failed to report command result: %v", err)
+		panic(err)
+	}
+}
+
+func reportProgressCommand(ctx *processContext, cmd *command.Command) {
+	err := ctx.nodeData.rpcClient.Call("NodeReporter.Progress", cmd, new(int))
+	if err != nil {
+		logger.Error("Failed to report progresss command execution: %v", err)
 		panic(err)
 	}
 }

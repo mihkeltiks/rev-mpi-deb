@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/proc"
+	"github.com/ottmartens/cc-rev-db/utils"
+	"github.com/ottmartens/cc-rev-db/utils/command"
 )
 
 type RemoteCmdHandler struct {
@@ -29,6 +30,10 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	var exited bool
 
 	logger.Verbose("handling command %v", cmd)
+
+	if cmd.IsForwardProgressCommand() {
+		reportProgressCommand(ctx, cmd)
+	}
 
 	switch cmd.Code {
 	case command.Bpoint:
@@ -66,9 +71,11 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 			if bpoint.isMPIBpoint {
 				ctx.stack = getStack(ctx)
 
-				recordMPIOperation(ctx, bpoint)
+				// single-step, then insert all missing mpi bpoints
+				continueExecution(ctx, true)
+				reinsertMPIBPoints(ctx)
 
-				reinsertMPIBPoints(ctx, bpoint)
+				recordMPIOperation(ctx, bpoint)
 			}
 
 			if !bpoint.isMPIBpoint || cmd.Code == command.SingleStep {
@@ -125,10 +132,10 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 
 		if singleStep {
 			err := syscall.PtraceSingleStep(ctx.pid)
-			must(err)
+			utils.Must(err)
 		} else {
 			err := syscall.PtraceCont(ctx.pid, 0)
-			must(err)
+			utils.Must(err)
 		}
 
 		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)

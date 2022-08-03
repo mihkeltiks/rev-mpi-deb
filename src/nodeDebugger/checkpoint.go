@@ -10,6 +10,7 @@ import (
 
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/proc"
+	"github.com/ottmartens/cc-rev-db/utils"
 )
 
 type CheckpointMode int
@@ -43,7 +44,7 @@ func (c checkpointData) New() checkpointData {
 }
 
 func (cp cPoint) String() string {
-	return fmt.Sprintf("cp{opName: %s}", cp.opName)
+	return fmt.Sprintf("{%s - %s}", cp.id, cp.opName)
 }
 
 func createCheckpoint(ctx *processContext, opName string) string {
@@ -58,7 +59,7 @@ func createCheckpoint(ctx *processContext, opName string) string {
 		checkpoint = createForkCheckpoint(ctx, opName)
 	}
 
-	checkpoint.id = randomId()
+	checkpoint.id = utils.RandomId()
 
 	for address, bp := range ctx.bpointData {
 		checkpoint.bpoints[address] = &bpointData{
@@ -77,10 +78,12 @@ func createCheckpoint(ctx *processContext, opName string) string {
 
 func restoreCheckpoint(ctx *processContext, checkpointId string) error {
 	var checkpoint *cPoint
+	var checkpointIndex int
 
-	for _, cp := range ctx.cpointData {
+	for index, cp := range ctx.cpointData {
 		if cp.id == checkpointId {
 			checkpoint = &cp
+			checkpointIndex = index
 			break
 		}
 	}
@@ -102,13 +105,13 @@ func restoreCheckpoint(ctx *processContext, checkpointId string) error {
 	logger.Debug("restoring registers state")
 
 	err := syscall.PtraceSetRegs(ctx.pid, checkpoint.regs)
-	must(err)
+	utils.Must(err)
 
 	logger.Debug("reverting breakpoints state")
 	ctx.bpointData = checkpoint.bpoints
 
 	// remove subsequent checkpoints
-	// ctx.cpointData = ctx.cpointData[:cpIndex+1]
+	ctx.cpointData = ctx.cpointData[:checkpointIndex+1]
 
 	logger.Debug("checkpoint restore finished")
 
@@ -121,7 +124,7 @@ func restoreFileCheckpoint(ctx *processContext, checkpoint cPoint) {
 	readMemoryContentsFromFile(checkpoint)
 
 	err := proc.WriteRegionsContentsToMemFile(ctx.pid, checkpoint.regions)
-	must(err)
+	utils.Must(err)
 }
 
 func restoreForkCheckpoint(ctx *processContext, checkpoint cPoint) {
@@ -136,7 +139,7 @@ func restoreForkCheckpoint(ctx *processContext, checkpoint cPoint) {
 		data := memRegion.ContentsFromFile(checkpoint.pid)
 
 		_, err := syscall.PtracePokeData(ctx.pid, uintptr(memRegion.Start), data)
-		must(err)
+		utils.Must(err)
 	}
 
 	for index, memRegion := range checkpoint.stackRegions {
@@ -144,20 +147,20 @@ func restoreForkCheckpoint(ctx *processContext, checkpoint cPoint) {
 		data := checkpoint.stackRawData[index]
 
 		_, err := syscall.PtracePokeData(ctx.pid, uintptr(memRegion.Start), data)
-		must(err)
+		utils.Must(err)
 	}
 }
 
 func createFileCheckpoint(ctx *processContext, opName string) cPoint {
 	regs := getRegs(ctx, false)
 
-	checkpointFile, err := os.CreateTemp(fmt.Sprintf("%v/temp", getExecutableDir()), fmt.Sprintf("%v-cp-*", filepath.Base(ctx.targetFile)))
+	checkpointFile, err := os.CreateTemp(fmt.Sprintf("%v/temp", utils.GetExecutableDir()), fmt.Sprintf("%v-cp-*", filepath.Base(ctx.targetFile)))
 
 	regions := proc.GetFileCheckpointDataAddresses(ctx.pid, ctx.targetFile)
 
 	writeCheckpointToFile(ctx, checkpointFile, regions)
 
-	must(err)
+	utils.Must(err)
 
 	checkpoint := cPoint{
 		opName:  opName,
@@ -201,7 +204,7 @@ func writeCheckpointToFile(ctx *processContext, file *os.File, regions []proc.Me
 
 func readMemoryContentsFromFile(checkpoint cPoint) {
 	file, err := os.Open(checkpoint.file)
-	must(err)
+	utils.Must(err)
 
 	reader := bufio.NewReader(file)
 
@@ -210,7 +213,7 @@ func readMemoryContentsFromFile(checkpoint cPoint) {
 		buffer := make([]byte, memRegion.End-memRegion.Start)
 
 		_, err := io.ReadFull(reader, buffer)
-		must(err)
+		utils.Must(err)
 
 		checkpoint.regions[index].Contents = buffer
 	}

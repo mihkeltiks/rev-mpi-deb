@@ -6,38 +6,25 @@ import (
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/rpc"
+	"github.com/ottmartens/cc-rev-db/utils/mpi"
 )
-
-type mpiFuncNames struct {
-	SIGNATURE string
-	SEND      string
-	RECEIVE   string
-	FINALIZE  string
-}
-
-var MPI_FUNCS mpiFuncNames = mpiFuncNames{
-	SIGNATURE: "_MPI_WRAPPER_INCLUDE",
-	SEND:      "MPI_Send",
-	RECEIVE:   "MPI_Recv",
-	FINALIZE:  "MPI_Finalize",
-}
 
 type FunctionVariableMap map[string]VariableMap
 
 type VariableMap map[string]string
 
 var variablesToCapture FunctionVariableMap = FunctionVariableMap{
-	MPI_FUNCS.SEND: VariableMap{
+	mpi.MPI_OPS[mpi.OP_SEND]: VariableMap{
 		"rank": "_MPI_WRAPPER_PROC_RANK",
 		"tag":  "tag",
 		"dest": "dest",
 	},
-	MPI_FUNCS.RECEIVE: VariableMap{
+	mpi.MPI_OPS[mpi.OP_RECV]: VariableMap{
 		"rank":   "_MPI_WRAPPER_PROC_RANK",
 		"tag":    "tag",
 		"source": "source",
 	},
-	MPI_FUNCS.FINALIZE: VariableMap{
+	mpi.MPI_OPS[mpi.OP_FINALIZE]: VariableMap{
 		"rank": "_MPI_WRAPPER_PROC_RANK",
 	},
 }
@@ -104,12 +91,10 @@ func isMPIBpointSet(ctx *processContext, function *dwarf.Function) bool {
 	return false
 }
 
-func reinsertMPIBPoints(ctx *processContext, currentBpoint *bpointData) {
+func reinsertMPIBPoints(ctx *processContext) {
 	for _, bp := range MPI_BPOINTS {
-		if bp.function.Name() != currentBpoint.function.Name() {
-			if !isMPIBpointSet(ctx, bp.function) {
-				insertMPIBreakpoint(ctx, bp, false)
-			}
+		if !isMPIBpointSet(ctx, bp.function) {
+			insertMPIBreakpoint(ctx, bp, false)
 		}
 	}
 }

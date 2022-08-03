@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
+	"github.com/ottmartens/cc-rev-db/utils"
 )
 
 type programStack []*stackFunction // the current call stack of the program
@@ -59,7 +60,7 @@ func getStack(ctx *processContext) programStack {
 
 	var offset uint64
 
-	ptrSize := uint64(ptrSize())
+	ptrSize := uint64(utils.PtrSize())
 
 	fn := ctx.dwarfData.PCToFunc(regs.Rip)
 
@@ -87,7 +88,7 @@ func getStack(ctx *processContext) programStack {
 
 		frameData := make([]byte, frameSize)
 		_, err := syscall.PtracePeekData(ctx.pid, uintptr(stackPointer), frameData)
-		must(err)
+		utils.Must(err)
 
 		// First instruction in frame - return address from stack frame
 		stackContent := binary.LittleEndian.Uint64(frameData[:ptrSize])

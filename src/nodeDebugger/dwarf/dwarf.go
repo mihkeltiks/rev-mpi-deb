@@ -131,7 +131,8 @@ func (d DwarfData) FindEntrySourceFile(mainFn string) (sourceFile string) {
 	return sourceFile
 }
 
-func (d *DwarfData) ResolveMPIDebugInfo(mpiSignatureFunc string) {
+func (d *DwarfData) ResolveMPIDebugInfo() {
+	mpiSignatureFunc := "_MPI_WRAPPER_INCLUDE"
 
 	mpiWrapFunctions := make([]*Function, 0)
 

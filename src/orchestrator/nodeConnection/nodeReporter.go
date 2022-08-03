@@ -1,30 +1,22 @@
-package main
+package nodeconnection
 
 import (
 	"time"
 
-	"github.com/ottmartens/cc-rev-db/command"
+	"github.com/ottmartens/cc-rev-db/utils/command"
+
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/orchestrator/checkpointmanager"
-	"github.com/ottmartens/cc-rev-db/orchestrator/gui/websocket"
 	"github.com/ottmartens/cc-rev-db/rpc"
 )
 
 type NodeReporter struct {
 	checkpointRecordChan chan<- rpc.MPICallRecord
+	quit                 func()
 }
 
-func startCheckpointRecordCollector(
-	channel <-chan rpc.MPICallRecord,
-) {
-	for {
-		callRecord := <-channel
-
-		logger.Verbose("Node %v reported MPI call: %v", callRecord.NodeId, callRecord.OpName)
-
-		checkpointmanager.RecordCheckpoint(callRecord)
-		websocket.SendCheckpointUpdateMessage(checkpointmanager.GetCheckpointLog())
-	}
+func NewNodeReporter(checkpointRecordChan chan<- rpc.MPICallRecord, quit func()) *NodeReporter {
+	return &NodeReporter{checkpointRecordChan, quit}
 }
 
 func (r NodeReporter) Register(pid *int, reply *int) error {
@@ -61,13 +53,18 @@ func (r NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 
 		if len(registeredNodes) == 0 {
 			go func() {
-				logger.Info("All nodes exited. Exiting in 5s")
-				time.Sleep(time.Second * 5)
-				quit()
+				logger.Info("All nodes exited. Exiting in 10s")
+				time.Sleep(time.Second * 10)
+				r.quit()
 			}()
 		}
 	}
 
+	return nil
+}
+
+func (r NodeReporter) Progress(cmd *command.Command, reply *int) error {
+	checkpointmanager.RemoveCurrentCheckpointMarkersOnNode(checkpointmanager.NodeId(cmd.NodeId))
 	return nil
 }
 

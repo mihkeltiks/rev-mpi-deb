@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/utils"
 )
 
 func logRegistersState(ctx *processContext) {
@@ -23,11 +24,11 @@ func getRegs(ctx *processContext, rewindIP bool) *syscall.PtraceRegs {
 
 	if err != nil {
 		logger.Error("error getting registers: %v", err)
-		must(err)
+		utils.Must(err)
 	}
 
 	// if currently stopped by a breakpoint, rewind the instruction pointer by 1
-	// to find the correct instruction (rewind the interrupt instruction)
+	// to find the correct instruction pointer location (rewind the interrupt instruction)
 	if rewindIP {
 		regs.Rip -= 1
 	}

@@ -9,10 +9,10 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/rpc"
+	"github.com/ottmartens/cc-rev-db/utils/command"
 )
 
 const MAIN_FN = "main"
@@ -65,7 +65,7 @@ func main() {
 
 	// parse debugging data
 	ctx.dwarfData = dwarf.ParseDwarfData(ctx.targetFile)
-	ctx.dwarfData.ResolveMPIDebugInfo(MPI_FUNCS.SIGNATURE)
+	ctx.dwarfData.ResolveMPIDebugInfo()
 	ctx.sourceFile = ctx.dwarfData.FindEntrySourceFile(MAIN_FN)
 
 	// start target binary

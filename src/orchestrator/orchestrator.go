@@ -6,20 +6,24 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/orchestrator/checkpointmanager"
+	"github.com/ottmartens/cc-rev-db/orchestrator/cli"
 	"github.com/ottmartens/cc-rev-db/orchestrator/gui"
+	"github.com/ottmartens/cc-rev-db/orchestrator/gui/websocket"
+	nodeconnection "github.com/ottmartens/cc-rev-db/orchestrator/nodeConnection"
 	"github.com/ottmartens/cc-rev-db/rpc"
+	"github.com/ottmartens/cc-rev-db/utils"
+	"github.com/ottmartens/cc-rev-db/utils/command"
 )
 
-var NODE_DEBUGGER_PATH = fmt.Sprintf("%s/node-debugger", getExecutableDir())
+var NODE_DEBUGGER_PATH = fmt.Sprintf("%s/node-debugger", utils.GetExecutableDir())
 
 const ORCHESTRATOR_PORT = 3490
 
 func main() {
-	logger.SetMaxLogLevel(logger.Levels.Verbose)
-	numProcesses, targetPath := parseArgs()
+	// logger.SetMaxLogLevel(logger.Levels.Verbose)
+	numProcesses, targetPath := cli.ParseArgs()
 
 	// start goroutine for collecting checkpoint results
 	checkpointRecordChan := make(chan rpc.MPICallRecord)
@@ -29,7 +33,7 @@ func main() {
 	go func() {
 		rpc.InitializeServer(ORCHESTRATOR_PORT, func(register rpc.Registrator) {
 			register(new(logger.LoggerServer))
-			register(&NodeReporter{checkpointRecordChan})
+			register(nodeconnection.NewNodeReporter(checkpointRecordChan, quit))
 		})
 	}()
 
@@ -49,9 +53,18 @@ func main() {
 	// mpiProcess.Stderr = os.Stderr
 
 	err := mpiProcess.Start()
-	must(err)
+	utils.Must(err)
 
 	defer quit()
+
+	// start the graphical user interface
+	// when running with docker, gui must be started on the host
+	if !utils.IsRunningInContainer() {
+		gui.Start()
+
+		websocket.InitServer()
+		websocket.WaitForClientConnection()
+	}
 
 	// asyncronously wait for the MPI job to finish
 	go func() {
@@ -65,33 +78,43 @@ func main() {
 
 	// wait for nodes to finish startup sequence
 	time.Sleep(time.Second)
-	connectToAllNodes(numProcesses)
+	nodeconnection.ConnectToAllNodes(numProcesses)
 
-	printInstructions()
+	time.Sleep(time.Second)
+	nodeconnection.HandleRemotely(&command.Command{NodeId: 1, Code: command.Bpoint, Argument: 52})
+	nodeconnection.HandleRemotely(&command.Command{NodeId: 0, Code: command.Bpoint, Argument: 52})
+	nodeconnection.HandleRemotely(&command.Command{NodeId: 1, Code: command.Cont})
+	time.Sleep(time.Second * 1)
+	nodeconnection.HandleRemotely(&command.Command{NodeId: 0, Code: command.Cont})
+	time.Sleep(time.Second)
+
+	cli.PrintInstructions()
 
 	for {
-		cmd := askForInput()
+		cmd := cli.AskForInput()
 
 		switch cmd.Code {
 		case command.Quit:
 			quit()
 		case command.Help:
-			printInstructions()
+			cli.PrintInstructions()
 			break
 		case command.ListCheckpoints:
 			checkpointmanager.ListCheckpoints()
 			break
 		case command.GlobalRollback:
 			handleRollbackSubmission(cmd)
+			break
 		default:
-			handleRemotely(cmd)
+			nodeconnection.HandleRemotely(cmd)
 			time.Sleep(time.Second)
+			break
 		}
 	}
 }
 
 func handleRollbackSubmission(cmd *command.Command) {
-	pendingRollback := checkpointmanager.SubmitForRollback(cmd)
+	pendingRollback := checkpointmanager.SubmitForRollback(cmd.Argument.(string))
 	if pendingRollback == nil {
 		return
 	}
@@ -99,26 +122,32 @@ func handleRollbackSubmission(cmd *command.Command) {
 	logger.Info("Following checkpoints scheduled for rollback:")
 	logger.Info("%v", pendingRollback)
 
-	commit := askForRollbackCommit()
+	commit := cli.AskForRollbackCommit()
 
 	if !commit {
-		logger.Info("Aborting rollback")
+		logger.Verbose("Cancelling pending rollback")
+		checkpointmanager.ResetPendingRollback()
+		return
 	}
 
-	logger.Info("Executing distributed rollback")
-	err := executeRollback(pendingRollback)
+	nodeconnection.ExecutePendingRollback()
+}
 
-	time.Sleep(time.Second)
+func startCheckpointRecordCollector(
+	channel <-chan rpc.MPICallRecord,
+) {
+	for {
+		callRecord := <-channel
 
-	if err == nil {
-		logger.Info("Distributed rollback executed successfully")
-	} else {
-		logger.Error("Distributed rollback failed")
+		logger.Debug("Node %v reported MPI call: %v", callRecord.NodeId, callRecord.OpName)
+
+		checkpointmanager.RecordCheckpoint(callRecord)
+		websocket.SendCheckpointUpdateMessage(checkpointmanager.GetCheckpointLog())
 	}
 }
 
 func quit() {
-	stopAllNodes()
+	nodeconnection.StopAllNodes()
 	gui.Stop()
 
 	time.Sleep(time.Second)

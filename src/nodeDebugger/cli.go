@@ -11,8 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ottmartens/cc-rev-db/command"
 	"github.com/ottmartens/cc-rev-db/logger"
+	"github.com/ottmartens/cc-rev-db/utils"
+	"github.com/ottmartens/cc-rev-db/utils/command"
 )
 
 func askForInput() *command.Command {
@@ -78,11 +79,11 @@ func getValuesFromArgs() (targetFilePath string, checkpointMode CheckpointMode, 
 		targetFilePath, err = filepath.Abs(os.Args[1])
 	}
 
-	must(err)
+	utils.Must(err)
 
 	targetFilePath, err = filepath.EvalSymlinks(targetFilePath)
 
-	must(err)
+	utils.Must(err)
 
 	if _, err := os.Stat(targetFilePath); errors.Is(err, os.ErrNotExist) {
 		panic(err) // file does not exist
