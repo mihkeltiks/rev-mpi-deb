@@ -2,8 +2,6 @@
 
 # Causally Consistent Reversible Debugger for MPI
 
-_in development_
-
 ---
 
 ## Running on linux
