@@ -107,11 +107,11 @@ func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 	address, err := ctx.dwarfData.LineToPC(file, line)
 
 	if err != nil {
-		logger.Debug("cannot set breakpoint at line: %v", err)
+		logger.Warn("cannot set breakpoint at line: %v", err)
 		return err
 	}
 
-	logger.Debug("setting breakpoint at line: %d, file: %v", line, file)
+	logger.Info("setting breakpoint at line: %d", line)
 	originalInstruction := insertBreakpoint(ctx, address)
 
 	ctx.bpointData[address] = &bpointData{

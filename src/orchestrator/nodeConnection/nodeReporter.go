@@ -43,7 +43,7 @@ func (r NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 			nodeId, cmd.Result.Error,
 		)
 	} else {
-		logger.Info("Node %v successfully executed command %v", nodeId, cmd)
+		logger.Verbose("Node %v successfully executed command %v", nodeId, cmd)
 	}
 
 	if cmd.Result.Exited {

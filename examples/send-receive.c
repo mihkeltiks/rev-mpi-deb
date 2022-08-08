@@ -54,6 +54,8 @@ void passMessages()
     printf("Node %d: received value %d from %d\n", rank, recvValue, otherProcessRank);
 
     phase++; // phase 3
+
+    return;
 }
 
 void finalise()

@@ -3,7 +3,7 @@
 
 int rank;
 int size;
-int value;
+int value = 0;
 
 void passMessages()
 {
@@ -32,6 +32,9 @@ void passMessages()
         printf("Node %d: passing the message forward\n", rank);
         MPI_Send(&value, 1, MPI_INT, nextRank, 0, MPI_COMM_WORLD);
     }
+    
+    printf("Node %d: value: %d\n", rank, value);
+    return;
 }
 
 int main(int argc, char **argv)

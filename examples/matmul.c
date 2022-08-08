@@ -1,15 +1,11 @@
 /******************************************************************************
-* FILE: mpi_mm.c
+* FILE: matmul.c
 * DESCRIPTION:  
 *   MPI Matrix Multiply - C Version
 *   In this code, the master task distributes a matrix multiply
 *   operation to numtasks-1 worker tasks.
-*   NOTE:  C and Fortran versions of this code differ because of the way
-*   arrays are stored/passed.  C arrays are row-major order but Fortran
-*   arrays are column-major order.
 * AUTHOR: Blaise Barney. Adapted from Ros Leibensperger, Cornell Theory
 *   Center. Converted to MPI: George L. Gusciora, MHPCC (1/95)
-* LAST REVISED: 04/13/05
 ******************************************************************************/
 #include "mpi.h"
 #include <stdio.h>
@@ -93,17 +89,18 @@ numworkers = numtasks-1;
       }
 
       /* Print results */
-      /*
+      
       printf("******************************************************\n");
       printf("Result Matrix:\n");
-      for (i=0; i<NRA; i++)
+      for (i=0; i<10; i++)
       {
          printf("\n"); 
-         for (j=0; j<NCB; j++) 
+         for (j=0; j<5; j++) 
             printf("%6.2f   ", c[i][j]);
+         printf("\n");
       }
+      printf("... %d more rows", NRA - 10);
       printf("\n******************************************************\n");
-      */
 
 
       printf("Done.\n");

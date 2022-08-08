@@ -3,6 +3,7 @@ package nodeconnection
 import (
 	"fmt"
 	"net/url"
+	"sort"
 
 	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/rpc"
@@ -32,6 +33,7 @@ func GetRegisteredIds() []int {
 	for nodeId := range registeredNodes {
 		nodeIds = append(nodeIds, nodeId)
 	}
+	sort.Sort(sort.IntSlice(nodeIds))
 	return nodeIds
 }
 
