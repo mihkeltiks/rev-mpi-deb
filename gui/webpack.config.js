@@ -11,7 +11,7 @@ module.exports = function (_env, argv) {
 			filename: '[name].js',
 			publicPath: '/',
 		},
-        stats: 'minimal',
+		stats: 'minimal',
 		module: {
 			rules: [
 				{
@@ -30,6 +30,9 @@ module.exports = function (_env, argv) {
 		},
 		resolve: {
 			extensions: ['.js', '.jsx'],
+		},
+		devServer: {
+			setupExitSignals: true,
 		},
 	};
 };

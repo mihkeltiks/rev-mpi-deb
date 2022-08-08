@@ -22,7 +22,7 @@ var NODE_DEBUGGER_PATH = fmt.Sprintf("%s/node-debugger", utils.GetExecutableDir(
 const ORCHESTRATOR_PORT = 3490
 
 func main() {
-	// logger.SetMaxLogLevel(logger.Levels.Verbose)
+	logger.SetMaxLogLevel(logger.Levels.Verbose)
 	numProcesses, targetPath := cli.ParseArgs()
 
 	// start goroutine for collecting checkpoint results
@@ -50,7 +50,7 @@ func main() {
 	)
 
 	mpiProcess.Stdout = os.Stdout
-	// mpiProcess.Stderr = os.Stderr
+	mpiProcess.Stderr = os.Stderr
 
 	err := mpiProcess.Start()
 	utils.Must(err)
@@ -80,12 +80,6 @@ func main() {
 	time.Sleep(time.Second)
 	nodeconnection.ConnectToAllNodes(numProcesses)
 
-	time.Sleep(time.Second)
-	nodeconnection.HandleRemotely(&command.Command{NodeId: 1, Code: command.Bpoint, Argument: 52})
-	nodeconnection.HandleRemotely(&command.Command{NodeId: 0, Code: command.Bpoint, Argument: 52})
-	nodeconnection.HandleRemotely(&command.Command{NodeId: 1, Code: command.Cont})
-	time.Sleep(time.Second * 1)
-	nodeconnection.HandleRemotely(&command.Command{NodeId: 0, Code: command.Cont})
 	time.Sleep(time.Second)
 
 	cli.PrintInstructions()

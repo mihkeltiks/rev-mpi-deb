@@ -1,4 +1,5 @@
 #include <mpi.h>
+#include <stdio.h>
 
 int rank;
 int size;
@@ -34,10 +35,14 @@ void passMessages()
         otherProcessRank = 1;
         sendValue = 123;
     }
-    else
+    else if (rank == 1)
     {
         otherProcessRank = 0;
         sendValue = 456;
+    }
+    else
+    {
+        return;
     }
 
     MPI_Send(&sendValue, 1, MPI_INT, otherProcessRank, 0, MPI_COMM_WORLD);

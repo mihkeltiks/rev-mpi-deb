@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Stage, Layer, Circle, Text, Line } from 'react-konva';
 
 const NODE_COLUMN_WIDTH = 120;
-const NODE_SIZE = 40;
-const NODE_ROW_GAP = 80;
+const NODE_SIZE = 30;
+const NODE_ROW_GAP = 55;
 
 const MessageNode = ({
 	checkpoint,
@@ -36,7 +36,7 @@ const MessageNode = ({
 		<>
 			<Circle
 				x={nodeIndex * NODE_COLUMN_WIDTH + 60}
-				y={checkpointIndex * NODE_ROW_GAP + 90}
+				y={checkpointIndex * NODE_ROW_GAP + 55}
 				width={NODE_SIZE}
 				height={NODE_SIZE}
 				fill={color}
@@ -51,7 +51,7 @@ const MessageNode = ({
 			/>
 			<Text
 				x={x}
-				y={y + 30}
+				y={y}
 				width={120}
 				text={OpName}
 				fontSize={13}
@@ -75,9 +75,9 @@ const MessageEdge = ({ checkpointIndex, nodeIndex, matchingNode }) => {
 		<Line
 			points={[
 				x + 60,
-				y + 65,
+				y + 30,
 				matchingNodeCoords.x + 60,
-				matchingNodeCoords.y + 65,
+				matchingNodeCoords.y + 30,
 			]}
 			fill='black'
 			stroke='black'
@@ -128,6 +128,8 @@ const MessageGraph = ({
 	}, [checkpointLog]);
 
 	useEffect(() => {
+		checkpointLog = computeVectorClocks(checkpointLog);
+
 		if (rankOrder) {
 			setOrderedNodeData(
 				rankOrder.reduce((acc, { nodeId }) => {
@@ -138,26 +140,117 @@ const MessageGraph = ({
 		} else setOrderedNodeData(Object.values(checkpointLog));
 	}, [rankOrder, checkpointLog]);
 
+	const computeVectorClocks = (checkpointLog) => {
+		const nodeIds = Object.keys(checkpointLog);
+
+		for (const [nodeIdx, nodeCheckpoints] of Object.entries(checkpointLog)) {
+			for (const [checkpointIdx, checkpoint] of nodeCheckpoints.entries()) {
+				checkpoint.vectorClocks = {};
+
+				for (const nodeId of nodeIds) {
+					checkpoint.vectorClocks[nodeId] =
+						nodeId == nodeIdx ? checkpointIdx + 1 : 0;
+				}
+			}
+		}
+
+		let changesMade = true;
+
+		while (changesMade) {
+			changesMade = false;
+
+			for (const [nodeIdx, nodeCheckpoints] of Object.entries(checkpointLog)) {
+				for (const [checkpointIdx, checkpoint] of nodeCheckpoints.entries()) {
+					if (checkpointIdx > 0) {
+						const previousCheckpoint = nodeCheckpoints[checkpointIdx - 1];
+
+						for (const [nodeId, nodeVecClock] of Object.entries(
+							previousCheckpoint.vectorClocks
+						)) {
+							if (checkpoint.vectorClocks[nodeId] < nodeVecClock) {
+								checkpoint.vectorClocks[nodeId] = nodeVecClock;
+							}
+						}
+
+						let positionIndex = Math.max(
+							...Object.values(checkpoint.vectorClocks)
+						);
+
+						const previousPosIndex = Math.max(
+							...Object.values(nodeCheckpoints[checkpointIdx - 1].vectorClocks)
+						);
+
+						if (positionIndex <= previousPosIndex) {
+							for (const nodeClock of Object.keys(checkpoint.vectorClocks)) {
+								checkpoint.vectorClocks[nodeClock] =
+									checkpoint.vectorClocks[nodeClock] + 1;
+							}
+
+							changesMade = true;
+						}
+					}
+
+					const { MatchingEventId, IsSend } = checkpoint;
+
+					if (MatchingEventId && !IsSend) {
+						const {
+							checkpoint: matchingCheckpoint,
+							nodeIndex: matchingNodeIdx,
+						} = getCheckpointById(MatchingEventId, checkpointLog);
+
+						if (matchingCheckpoint) {
+							for (const [nodeId, nodeVecClock] of Object.entries(
+								matchingCheckpoint.vectorClocks
+							)) {
+								if (checkpoint.vectorClocks[nodeId] <= nodeVecClock) {
+									checkpoint.vectorClocks[nodeId]++;
+									changesMade = true;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		for (const [nodeIdx, nodeCheckpoints] of Object.entries(checkpointLog)) {
+			for (const [checkpointIdx, checkpoint] of nodeCheckpoints.entries()) {
+				const maxIndex = Math.max(...Object.values(checkpoint.vectorClocks));
+
+				checkpoint.positionIndex = maxIndex;
+			}
+		}
+
+		console.log('vector clocks complete');
+		console.log(checkpointLog);
+
+		return checkpointLog;
+	};
+
 	return (
 		<>
-			<Stage width={window.innerWidth} height={window.innerHeight - 20}>
+			<Stage
+				draggable
+				width={window.innerWidth}
+				height={window.innerHeight - 20}
+			>
 				<Layer>
 					{orderedNodeData.map((nodeCheckpoints, nodeIndex) =>
 						nodeCheckpoints.map((checkpoint, checkpointIndex) => {
-							const { MatchingEventId, IsSend } = checkpoint;
+							const { MatchingEventId, IsSend, positionIndex } = checkpoint;
 
-							const matchingNode =
+							const receiveNode =
 								MatchingEventId && IsSend
 									? getNodePosition(MatchingEventId, orderedNodeData)
 									: null;
 
 							return (
-								matchingNode && (
+								receiveNode && (
 									<MessageEdge
 										key={checkpoint.Id}
-										checkpointIndex={checkpointIndex}
+										checkpointIndex={positionIndex}
 										nodeIndex={nodeIndex}
-										matchingNode={matchingNode}
+										matchingNode={receiveNode}
 									/>
 								)
 							);
@@ -172,7 +265,7 @@ const MessageGraph = ({
 									key={rank}
 									text={`Rank: ${rank}\n Id:${nodeId}`}
 									x={x}
-									y={y - 10}
+									y={y}
 									fontSize={13}
 									fontFamily='Ubuntu'
 									fill='black'
@@ -183,12 +276,15 @@ const MessageGraph = ({
 							);
 						})}
 
-					{orderedNodeData.map((nodeCheckpoints, nodeIndex) =>
-						nodeCheckpoints.map((checkpoint, checkpointIndex) => {
+					{orderedNodeData.map((nodeCheckpoints, nodeIndex) => {
+
+						return nodeCheckpoints.map((checkpoint, checkpointIndex) => {
+
+
 							return (
 								<MessageNode
 									key={checkpoint.Id}
-									checkpointIndex={checkpointIndex}
+									checkpointIndex={checkpoint.positionIndex}
 									nodeIndex={nodeIndex}
 									checkpoint={checkpoint}
 									onRollbackSubmit={onRollbackSubmit}
@@ -199,8 +295,8 @@ const MessageGraph = ({
 									pendingRollbackNodes={pendingRollbackNodes}
 								/>
 							);
-						})
-					)}
+						});
+					})}
 				</Layer>
 			</Stage>
 		</>
@@ -214,12 +310,30 @@ function getNodeCoordinates(nodeIndex, checkpointIndex) {
 	};
 }
 
+function getCheckpointById(id, checkpointLog) {
+	for (const [nodeIdx, nodeCheckpoints] of Object.entries(checkpointLog)) {
+		for (const [checkpointIdx, checkpoint] of nodeCheckpoints.entries()) {
+			if (checkpoint.Id == id) {
+				return {
+					nodeIndex: nodeIdx,
+					checkpoint,
+				};
+			}
+		}
+	}
+
+	return { checkpoint: null };
+}
+
 function getNodePosition(id, orderedNodeData) {
 	// @ts-ignore
 	for (const [nodeIndex, nodeCheckpoints] of orderedNodeData.entries()) {
 		for (const [checkpointIndex, checkpoint] of nodeCheckpoints.entries()) {
 			if (checkpoint.Id == id) {
-				return { nodeIndex, checkpointIndex };
+				return {
+					nodeIndex,
+					checkpointIndex: checkpoint.positionIndex,
+				};
 			}
 		}
 	}

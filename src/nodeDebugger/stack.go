@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"syscall"
 
+	"github.com/ottmartens/cc-rev-db/logger"
 	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
 	"github.com/ottmartens/cc-rev-db/utils"
 )
@@ -79,14 +80,16 @@ func getStack(ctx *processContext) programStack {
 
 		frameSize := basePointer - stackPointer + ptrSize
 
-		if frameSize > 1024 || frameSize <= ptrSize {
-			// logger.Debug("invalid base pointer or frame size")
+		if frameSize > 1024 || frameSize == 0 {
+			logger.Debug("invalid base pointer or frame size")
 			frameSize = 32
 		}
 
 		frameData := make([]byte, frameSize)
 		_, err := syscall.PtracePeekData(ctx.pid, uintptr(stackPointer), frameData)
-		utils.Must(err)
+		if err != nil {
+			break
+		}
 
 		// First instruction in frame - return address from stack frame
 		stackContent := binary.LittleEndian.Uint64(frameData[:ptrSize])

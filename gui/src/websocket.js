@@ -2,9 +2,8 @@ const SERVER_URL = 'ws://127.0.0.1:3496';
 let socket;
 
 export const connect = (onMessage) => {
+    console.log('connecting');
 	socket = new WebSocket(SERVER_URL);
-
-
 	socket.onerror = (err) => {
 		console.log('socket error', err);
 	};
@@ -30,6 +29,17 @@ export const connect = (onMessage) => {
 	socket.onclose = () => {
 		window.close();
 	};
+
+    setTimeout(() => {
+        reconnect();
+    }, 1000)
+};
+
+const reconnect = () => {
+	if (socket && !socket.OPEN) {
+        console.log('Reconnecting to websocket');
+		connect();
+	}
 };
 
 export const sendMessage = (messageType, payload) => {

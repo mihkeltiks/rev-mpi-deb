@@ -38,3 +38,11 @@ int _MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source,
 {
     return MPI_Recv(buf, count, datatype, source, tag, comm, status);
 }
+
+int _MPI_Abort(MPI_Comm comm, int errorcode) {
+    return MPI_Abort(comm, errorcode);
+}
+
+double _MPI_Wtime() {
+    return MPI_Wtime();
+}
