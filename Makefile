@@ -1,6 +1,8 @@
 UNAME_S := $(shell uname -s)
 
 build:
+	export GO111MODULE="off"
+	go get github.com/gorilla/websocket
 	cd src/nodeDebugger && go build -o ../../bin/node-debugger *.go
 	cd src/orchestrator && go build -o ../../bin/orchestrator *.go
 	cd src/compiler && go build -o ../../bin/compiler *.go
