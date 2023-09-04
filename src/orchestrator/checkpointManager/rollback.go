@@ -1,7 +1,7 @@
 package checkpointmanager
 
 import (
-	"github.com/ottmartens/cc-rev-db/logger"
+	"logger"
 )
 
 // holds the checkpoints to be restored, obtained from the submission of a rollback command

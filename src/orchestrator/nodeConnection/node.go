@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"sort"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/rpc"
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"logger"
+	"rpc"
+	"utils/command"
 )
 
 type node struct {

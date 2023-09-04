@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	nodeconnection "github.com/ottmartens/cc-rev-db/orchestrator/nodeConnection"
-	"github.com/ottmartens/cc-rev-db/utils"
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"logger"
+	nodeconnection "orchestrator/nodeConnection"
+	"utils"
+	"utils/command"
 )
 
 func ParseArgs() (numProcesses int, targetPath string) {

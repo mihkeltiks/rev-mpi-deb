@@ -6,7 +6,7 @@ import (
 	"net/rpc"
 	"net/url"
 
-	"github.com/ottmartens/cc-rev-db/logger"
+	"logger"
 )
 
 type RPCClient struct {

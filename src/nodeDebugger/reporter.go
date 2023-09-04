@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/rpc"
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"logger"
+	"rpc"
+	"utils/command"
 )
 
 func reportAsHealthy(ctx *processContext) (nodeId int) {

@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/utils"
+	"logger"
+	"utils"
 )
 
 var connection *websocket.Conn

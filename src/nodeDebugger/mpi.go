@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
-	"github.com/ottmartens/cc-rev-db/rpc"
-	"github.com/ottmartens/cc-rev-db/utils/mpi"
+	"logger"
+	"nodeDebugger/dwarf"
+	"rpc"
+	"utils/mpi"
 )
 
 type FunctionVariableMap map[string]VariableMap

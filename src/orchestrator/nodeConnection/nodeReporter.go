@@ -3,11 +3,11 @@ package nodeconnection
 import (
 	"time"
 
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"utils/command"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/orchestrator/checkpointmanager"
-	"github.com/ottmartens/cc-rev-db/rpc"
+	"logger"
+	"orchestrator/checkpointManager"
+	"rpc"
 )
 
 type NodeReporter struct {

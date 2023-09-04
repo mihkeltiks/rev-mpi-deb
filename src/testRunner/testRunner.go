@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ottmartens/cc-rev-db/logger"
+	"logger"
 )
 
 const SLEEP_MS = 300

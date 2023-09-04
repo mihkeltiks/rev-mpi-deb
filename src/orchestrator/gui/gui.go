@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/utils"
+	"logger"
+	"utils"
 )
 
 var guiProcess *exec.Cmd

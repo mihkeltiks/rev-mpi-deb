@@ -7,10 +7,10 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
-	"github.com/ottmartens/cc-rev-db/rpc"
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"logger"
+	"nodeDebugger/dwarf"
+	"rpc"
+	"utils/command"
 )
 
 const MAIN_FN = "main"

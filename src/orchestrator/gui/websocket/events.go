@@ -1,10 +1,10 @@
 package websocket
 
 import (
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/orchestrator/checkpointmanager"
-	"github.com/ottmartens/cc-rev-db/orchestrator/cli"
-	nodeconnection "github.com/ottmartens/cc-rev-db/orchestrator/nodeConnection"
+	"logger"
+	"orchestrator/checkpointManager"
+	"orchestrator/cli"
+	nodeconnection "orchestrator/nodeConnection"
 )
 
 type MessageType string

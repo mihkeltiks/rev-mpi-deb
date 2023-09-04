@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ottmartens/cc-rev-db/logger"
+	"logger"
 )
 
 func GetFileCheckpointDataAddresses(pid int, sourceFile string) []MemRegion {

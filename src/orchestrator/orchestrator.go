@@ -6,15 +6,15 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/orchestrator/checkpointmanager"
-	"github.com/ottmartens/cc-rev-db/orchestrator/cli"
-	"github.com/ottmartens/cc-rev-db/orchestrator/gui"
-	"github.com/ottmartens/cc-rev-db/orchestrator/gui/websocket"
-	nodeconnection "github.com/ottmartens/cc-rev-db/orchestrator/nodeConnection"
-	"github.com/ottmartens/cc-rev-db/rpc"
-	"github.com/ottmartens/cc-rev-db/utils"
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"logger"
+	"orchestrator/checkpointManager"
+	"orchestrator/cli"
+	"orchestrator/gui"
+	"orchestrator/gui/websocket"
+	"orchestrator/nodeConnection"
+	"rpc"
+	"utils"
+	"utils/command"
 )
 
 var NODE_DEBUGGER_PATH = fmt.Sprintf("%s/node-debugger", utils.GetExecutableDir())

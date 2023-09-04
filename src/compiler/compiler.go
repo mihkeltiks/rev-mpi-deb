@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ottmartens/cc-rev-db/logger"
+	"logger"
 )
 
 const (
@@ -91,20 +91,14 @@ func compile(sourcePath string, destPath string) error {
 
 func createWrappedCopy(inputFilePath string) (*os.File, error) {
 	filePath := fmt.Sprintf("%s/%s", TEMP_FOLDER, path.Base(inputFilePath))
-
 	dest, err := os.Create(filePath)
-
 	if err != nil {
 		return nil, err
 	}
-
 	source, _ := os.Open(inputFilePath)
 	defer source.Close()
-
 	scanner := bufio.NewScanner(source)
-
 	dest.WriteString(terminate(WRAPPED_MPI_INCLUDE))
-
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -112,7 +106,7 @@ func createWrappedCopy(inputFilePath string) (*os.File, error) {
 
 		dest.WriteString(terminate(line))
 	}
-
+    
 	return dest, nil
 }
 

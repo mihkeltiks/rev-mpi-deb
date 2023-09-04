@@ -5,6 +5,7 @@ import (
 	"debug/elf"
 	"io"
 	"reflect"
+    "fmt"
 )
 
 func ParseDwarfData(targetFile string) *DwarfData {
@@ -25,7 +26,7 @@ func ParseDwarfData(targetFile string) *DwarfData {
 	if err != nil {
 		panic(err)
 	}
-
+    fmt.Println(":AOWINFAOIWNFOIAWNFOIAW")
 	reader := dwarfRawData.Reader()
 
 	for {
@@ -150,9 +151,11 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *Function {
 	}
 
 	ranges, err := dwarfRawData.Ranges(entry)
+    fmt.Println("EHAFBOIUWABNFOIANBWOIANIWFONAW")
 	if err != nil {
 		panic(err)
 	}
+    fmt.Println(ranges)
 	function.lowPC = ranges[0][0]
 	function.highPC = ranges[0][1]
 	function.Parameters = make([]*Parameter, 0)

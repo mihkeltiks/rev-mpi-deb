@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ottmartens/cc-rev-db/orchestrator/checkpointmanager"
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"orchestrator/checkpointManager"
+	"utils/command"
 
-	"github.com/ottmartens/cc-rev-db/logger"
+	"logger"
 )
 
 func HandleRemotely(cmd *command.Command) error {

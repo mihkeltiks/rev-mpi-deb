@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/nodeDebugger/dwarf"
-	"github.com/ottmartens/cc-rev-db/nodeDebugger/proc"
-	"github.com/ottmartens/cc-rev-db/utils"
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"logger"
+	"nodeDebugger/dwarf"
+	"nodeDebugger/proc"
+	"utils"
+	"utils/command"
 )
 
 type RemoteCmdHandler struct {

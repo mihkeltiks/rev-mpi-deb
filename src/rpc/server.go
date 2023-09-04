@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/rpc"
 
-	"github.com/ottmartens/cc-rev-db/logger"
+	"logger"
 )
 
 type Registrator func(any) error

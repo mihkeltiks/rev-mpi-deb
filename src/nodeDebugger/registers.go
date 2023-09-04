@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"syscall"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/utils"
+	"logger"
+	"utils"
 )
 
 func logRegistersState(ctx *processContext) {

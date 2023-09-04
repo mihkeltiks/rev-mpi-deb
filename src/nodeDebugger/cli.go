@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/utils"
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"logger"
+	"utils"
+	"utils/command"
 )
 
 func askForInput() *command.Command {

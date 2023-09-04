@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ottmartens/cc-rev-db/logger"
-	"github.com/ottmartens/cc-rev-db/utils/command"
+	"logger"
+	"utils/command"
 )
 
 func parseCommandFromString(input string) (c *command.Command) {

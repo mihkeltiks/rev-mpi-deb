@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/ottmartens/cc-rev-db/logger"
+	"logger"
 )
 
 func precleanup() {
