@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"logger"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
 )
 
 const (
@@ -24,8 +24,8 @@ const (
 var WRAPPED_MPI_INCLUDE string = WRAPPED_MPI_FILE_INCLUDE
 
 /*
-	Compile MPI programs for the debugger
-	Wraps the MPI library in the target to enable intercepting MPI calls
+Compile MPI programs for the debugger
+Wraps the MPI library in the target to enable intercepting MPI calls
 */
 func main() {
 	err := executeWorkflow()
@@ -114,7 +114,7 @@ func createWrappedCopy(inputFilePath string) (*os.File, error) {
 
 		dest.WriteString(terminate(line))
 	}
-    
+
 	return dest, nil
 }
 

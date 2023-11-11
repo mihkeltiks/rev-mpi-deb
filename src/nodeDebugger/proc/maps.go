@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"logger"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
 )
 
 func GetFileCheckpointDataAddresses(pid int, sourceFile string) []MemRegion {
