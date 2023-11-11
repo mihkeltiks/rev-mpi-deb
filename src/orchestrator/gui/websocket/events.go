@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/orchestrator/checkpointmanager"
 	"github.com/mihkeltiks/rev-mpi-deb/orchestrator/cli"
 	nodeconnection "github.com/mihkeltiks/rev-mpi-deb/orchestrator/nodeConnection"
 )
