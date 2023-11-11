@@ -1,10 +1,9 @@
 package websocket
 
 import (
-	"logger"
-	"orchestrator/checkpointManager"
-	"orchestrator/cli"
-	nodeconnection "orchestrator/nodeConnection"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/orchestrator/cli"
+	nodeconnection "github.com/mihkeltiks/rev-mpi-deb/orchestrator/nodeConnection"
 )
 
 type MessageType string

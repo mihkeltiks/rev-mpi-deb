@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"logger"
-	"rpc"
-	"utils/mpi"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/rpc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/mpi"
 )
 
 type NodeId int

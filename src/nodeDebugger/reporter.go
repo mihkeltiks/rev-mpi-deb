@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"logger"
-	"rpc"
-	"utils/command"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/rpc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 func reportAsHealthy(ctx *processContext) (nodeId int) {

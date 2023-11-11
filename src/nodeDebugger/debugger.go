@@ -7,10 +7,10 @@ import (
 	"runtime"
 	"syscall"
 
-	"logger"
-	"nodeDebugger/dwarf"
-	"rpc"
-	"utils/command"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/dwarf"
+	"github.com/mihkeltiks/rev-mpi-deb/rpc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 const MAIN_FN = "main"

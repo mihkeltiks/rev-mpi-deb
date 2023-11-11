@@ -6,15 +6,13 @@ import (
 	"os/exec"
 	"time"
 
-	"logger"
-	"orchestrator/checkpointManager"
-	"orchestrator/cli"
-	"orchestrator/gui"
-	"orchestrator/gui/websocket"
-	"orchestrator/nodeConnection"
-	"rpc"
-	"utils"
-	"utils/command"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/orchestrator/cli"
+	"github.com/mihkeltiks/rev-mpi-deb/orchestrator/gui"
+	"github.com/mihkeltiks/rev-mpi-deb/orchestrator/gui/websocket"
+	"github.com/mihkeltiks/rev-mpi-deb/rpc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 var NODE_DEBUGGER_PATH = fmt.Sprintf("%s/node-debugger", utils.GetExecutableDir())

@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"orchestrator/checkpointManager"
-	"utils/command"
-
-	"logger"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/orchestrator/checkpointmanager"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 func HandleRemotely(cmd *command.Command) error {

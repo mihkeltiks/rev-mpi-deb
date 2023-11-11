@@ -3,11 +3,10 @@ package nodeconnection
 import (
 	"time"
 
-	"utils/command"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 
-	"logger"
-	"orchestrator/checkpointManager"
-	"rpc"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/rpc"
 )
 
 type NodeReporter struct {

@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"logger"
-	"nodeDebugger/dwarf"
-	"nodeDebugger/proc"
-	"utils"
-	"utils/command"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/dwarf"
+	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/proc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 type RemoteCmdHandler struct {
@@ -32,7 +32,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	logger.Verbose("handling command %v", cmd)
 
 	if cmd.IsForwardProgressCommand() {
-		fmt.Println("\n",ctx)
+		fmt.Println("\n", ctx)
 		reportProgressCommand(ctx, cmd)
 	}
 

@@ -1,7 +1,7 @@
 package checkpointmanager
 
 import (
-	"logger"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
 )
 
 // holds the checkpoints to be restored, obtained from the submission of a rollback command

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/rpc"
 
-	"logger"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
 )
 
 type Registrator func(any) error

@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 
-	"logger"
-	"nodeDebugger/dwarf"
-	"rpc"
-	"utils/mpi"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/dwarf"
+	"github.com/mihkeltiks/rev-mpi-deb/rpc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/mpi"
 )
 
 type FunctionVariableMap map[string]VariableMap

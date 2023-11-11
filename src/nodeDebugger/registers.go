@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"syscall"
 
-	"logger"
-	"utils"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/utils"
 )
 
 func logRegistersState(ctx *processContext) {

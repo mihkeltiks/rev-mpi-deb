@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"logger"
-	"utils/command"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 func parseCommandFromString(input string) (c *command.Command) {

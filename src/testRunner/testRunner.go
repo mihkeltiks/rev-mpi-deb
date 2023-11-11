@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"logger"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
 )
 
 const SLEEP_MS = 300

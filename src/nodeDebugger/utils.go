@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"logger"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
 )
 
 func precleanup() {

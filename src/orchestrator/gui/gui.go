@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os/exec"
 
-	"logger"
-	"utils"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/utils"
 )
 
 var guiProcess *exec.Cmd

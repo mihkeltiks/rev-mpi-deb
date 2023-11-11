@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"sort"
 
-	"logger"
-	"rpc"
-	"utils/command"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/rpc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 type node struct {

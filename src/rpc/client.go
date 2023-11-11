@@ -6,7 +6,7 @@ import (
 	"net/rpc"
 	"net/url"
 
-	"logger"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
 )
 
 type RPCClient struct {

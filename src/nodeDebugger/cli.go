@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"logger"
-	"utils"
-	"utils/command"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/utils"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 func askForInput() *command.Command {

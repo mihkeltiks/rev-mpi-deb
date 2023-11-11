@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	"logger"
-	nodeconnection "orchestrator/nodeConnection"
-	"utils"
-	"utils/command"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	nodeconnection "github.com/mihkeltiks/rev-mpi-deb/orchestrator/nodeConnection"
+	"github.com/mihkeltiks/rev-mpi-deb/utils"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 func ParseArgs() (numProcesses int, targetPath string) {

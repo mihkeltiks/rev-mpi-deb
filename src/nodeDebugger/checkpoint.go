@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"logger"
-	"nodeDebugger/proc"
-	"utils"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/proc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils"
 )
 
 type CheckpointMode int

@@ -1,4 +1,4 @@
-module rev-mpi-deb
+module github.com/mihkeltiks/rev-mpi-deb
 
 go 1.21.0
 
