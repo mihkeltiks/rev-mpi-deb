@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM okmartens/golang-mpi
 
+ENV GOPATH=/app
+ENV GO111MODULE=off
 WORKDIR /app
 
 COPY . .

@@ -32,6 +32,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	logger.Verbose("handling command %v", cmd)
 
 	if cmd.IsForwardProgressCommand() {
+		fmt.Println("\n",ctx)
 		reportProgressCommand(ctx, cmd)
 	}
 

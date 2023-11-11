@@ -96,7 +96,6 @@ func handleRemoteWorkflow(ctx *processContext) {
 
 	for {
 		cmd := <-commandQueue
-
 		handleCommand(ctx, cmd)
 
 		reportCommandResult(ctx, cmd)
