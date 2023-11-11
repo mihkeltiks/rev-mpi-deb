@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"logger"
-    "nodeDebugger/dwarf"
-	"utils"
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/dwarf"
+	"github.com/mihkeltiks/rev-mpi-deb/utils"
 )
 
 type breakpointData map[uint64]*bpointData
