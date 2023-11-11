@@ -78,7 +78,7 @@ func getStack(ctx *processContext) programStack {
 	for {
 		offset = 0
 
-		frameSize := basePointer - stackPointer + ptrSize
+		frameSize := stackPointer - basePointer + ptrSize
 
 		if frameSize > 1024 || frameSize == 0 {
 			logger.Debug("invalid base pointer or frame size")
