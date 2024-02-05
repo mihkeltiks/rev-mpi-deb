@@ -141,6 +141,7 @@ func startBinary(target string) *exec.Cmd {
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Ptrace: true,
+		Setsid: true,
 	}
 
 	cmd.Start()

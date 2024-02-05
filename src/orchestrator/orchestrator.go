@@ -4,7 +4,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
+	"syscall"
 	"time"
+
+	"github.com/checkpoint-restore/go-criu/v7"
+	crpc "github.com/checkpoint-restore/go-criu/v7/rpc"
+	"github.com/creack/pty"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/mihkeltiks/rev-mpi-deb/logger"
 	"github.com/mihkeltiks/rev-mpi-deb/orchestrator/checkpointmanager"
@@ -49,6 +56,10 @@ func main() {
 		fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
 	)
 
+	mpiProcess.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
+
 	mpiProcess.Stdout = os.Stdout
 	mpiProcess.Stderr = os.Stderr
 
@@ -82,6 +93,7 @@ func main() {
 
 	time.Sleep(time.Second)
 
+	var checkpoints []string
 	cli.PrintInstructions()
 
 	for {
@@ -99,12 +111,141 @@ func main() {
 		case command.GlobalRollback:
 			handleRollbackSubmission(cmd)
 			break
+		case command.CheckpointCRIU:
+			nodeconnection.Stop()
+			nodeconnection.Detach()
+			time.Sleep(1 * time.Second)
+			checkpointDir := checkpointCRIU(mpiProcess.Process.Pid, true)
+			checkpoints = append(checkpoints, checkpointDir)
+			nodeconnection.Attach()
+			break
+		case command.Stop:
+			nodeconnection.Stop()
+			break
+		case command.Detach:
+			nodeconnection.Detach()
+			break
+		case command.Attach:
+			nodeconnection.Attach()
+			break
+		case command.Kill:
+			nodeconnection.Stop()
+			nodeconnection.Detach()
+			time.Sleep(1 * time.Second)
+			checkpointDir := checkpointCRIU(mpiProcess.Process.Pid, false)
+			checkpoints = append(checkpoints, checkpointDir)
+			// logger.Info("Killing %s", mpiProcess.Process.Pid)
+			// nodeconnection.Kill()
+			// time.Sleep(1 * time.Second)
+			// if err := syscall.Kill(-mpiProcess.Process.Pid, syscall.SIGKILL); err != nil {
+			// 	fmt.Println("Error killing process:", err)
+			// }
+			// syscall.Wait4(mpiProcess.Process.Pid, nil, 0, nil)
+			break
+		case command.RestoreCRIU:
+			_ = restoreCriu(checkpoints[cmd.Argument.(int)])
+			time.Sleep(2 * time.Second)
+			// nodeconnection.ConnectToAllNodes(numProcesses)
+			break
+		case command.Connect:
+			nodeconnection.Empty()
+			nodeconnection.ConnectToAllNodes(numProcesses)
+			logger.Info("HERE")
+			break
+		case command.Disconnect:
+			nodeconnection.DisconnectAllNodes()
+			break
+		case command.Reset:
+			nodeconnection.Stop()
+			nodeconnection.Detach()
+			nodeconnection.HandleRemotely(cmd)
+			time.Sleep(1 * time.Second)
+			checkpointDir := checkpointCRIU(mpiProcess.Process.Pid, false)
+			checkpoints = append(checkpoints, checkpointDir)
+			// nodeconnection.Empty()
+			// time.Sleep(2 * time.Second)
+
+			// nodeconnection.ConnectToAllNodes(numProcesses)
+			break
 		default:
 			nodeconnection.HandleRemotely(cmd)
 			time.Sleep(time.Second)
 			break
 		}
 	}
+}
+
+func restoreCriu(checkpointDir string) *os.File {
+	logger.Info("RESTORING %s", checkpointDir)
+
+	cmd := exec.Command("/usr/local/sbin/criu", "restore", "-v4", "-o", "restore.log", "-j", "--tcp-established", "-D", checkpointDir)
+
+	f, err := pty.Start(cmd)
+	if err != nil {
+		logger.Info("ERROR WITH PTY", err)
+	}
+	logger.Info("RESTORED")
+
+	return f
+}
+
+func checkpointCRIU(pid int, leave_running bool) (checkpointDir string) {
+	c := criu.MakeCriu()
+
+	checkpointDir, err := os.MkdirTemp(fmt.Sprintf("%v/temp", utils.GetExecutableDir()), "cp-*")
+	if err != nil {
+		logger.Error("Error creating folder, %v", err)
+	}
+	logger.Info("Saving checkpoint into: %v", checkpointDir)
+
+	// Calls CRIU, saves process data to checkpointDir
+	Dump(c, strconv.Itoa(pid), false, checkpointDir, "", leave_running)
+
+	return checkpointDir
+}
+
+func Dump(c *criu.Criu, pidS string, pre bool, imgDir string, prevImg string, leave_running bool) {
+	pid, err := strconv.ParseInt(pidS, 10, 32)
+	if err != nil {
+		logger.Error("Can't parse pid: %v", err)
+	}
+	img, err := os.Open(imgDir)
+	if err != nil {
+		logger.Error("Can't open image dir: %v", err)
+	}
+
+	opts := &crpc.CriuOpts{
+		Pid:            proto.Int32(int32(pid)),
+		ImagesDirFd:    proto.Int32(int32(img.Fd())),
+		LogLevel:       proto.Int32(4),
+		ShellJob:       proto.Bool(true),
+		LogToStderr:    proto.Bool(true),
+		LeaveRunning:   proto.Bool(leave_running),
+		LogFile:        proto.String("dump.log"),
+		ExtUnixSk:      proto.Bool(true),
+		TcpEstablished: proto.Bool(true),
+	}
+
+	if prevImg != "" {
+		opts.ParentImg = proto.String(prevImg)
+		opts.TrackMem = proto.Bool(true)
+		time.Sleep(5 * time.Second)
+	}
+
+	if pre {
+		err = c.PreDump(opts, TestNfy{})
+	} else {
+		err = c.Dump(opts, TestNfy{})
+	}
+
+	if err != nil {
+		logger.Error("CRIU error during checkpoint: %v", err)
+	}
+	img.Close()
+}
+
+type TestNfy struct {
+	criu.NoNotify
 }
 
 func handleRollbackSubmission(cmd *command.Command) {

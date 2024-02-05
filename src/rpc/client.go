@@ -15,14 +15,14 @@ type RPCClient struct {
 }
 
 func Connect(serverAddress *url.URL) *RPCClient {
-	logger.Debug("connecting to rpc server at %v", serverAddress)
+	// logger.Debug("connecting to rpc server at %v", serverAddress)
 
 	connection, err := rpc.DialHTTP("tcp", serverAddress.String())
 	if err != nil {
 		logger.Error("Failed to connect to rpc server at %v", serverAddress)
 		panic(err)
 	}
-	logger.Debug("connected")
+	// logger.Debug("connected")
 
 	client := RPCClient{
 		connection: connection,
@@ -30,6 +30,20 @@ func Connect(serverAddress *url.URL) *RPCClient {
 	}
 
 	return &client
+}
+
+func (r *RPCClient) Disconnect() {
+	// r.mu.Lock()
+	// defer r.mu.Unlock()
+
+	if r.connection != nil {
+		err := r.connection.Close()
+		if err == nil {
+			r.connection = nil
+		}
+	} else {
+		logger.Debug("Already disconnected from rpc server at %v", r.address)
+	}
 }
 
 func (r *RPCClient) Call(methodName string, args any, reply any) error {

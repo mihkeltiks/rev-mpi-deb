@@ -25,7 +25,46 @@ func parseCommandFromString(input string) (c *command.Command) {
 		return &command.Command{Code: command.ListCheckpoints}
 	}
 
+	if input == "cpCRIU" { // list recorded checkpoints
+		return &command.Command{Code: command.CheckpointCRIU}
+	}
+
+	if input == "restoreCRIU" { // list recorded checkpoints
+		return &command.Command{Code: command.RestoreCRIU}
+	}
+
+	if input == "kill" { // list recorded checkpoints
+		return &command.Command{Code: command.Kill}
+	}
+
+	if input == "attach" { // list recorded checkpoints
+		return &command.Command{Code: command.Attach}
+	}
+
+	if input == "stop" { // list recorded checkpoints
+		return &command.Command{Code: command.Stop}
+	}
+
+	if input == "detach" { // list recorded checkpoints
+		return &command.Command{Code: command.Detach}
+	}
+	if input == "connect" { // list recorded checkpoints
+		return &command.Command{Code: command.Connect}
+	}
+	if input == "disconnect" { // list recorded checkpoints
+		return &command.Command{Code: command.Disconnect}
+	}
+	if input == "reset" { // list recorded checkpoints
+		return &command.Command{Code: command.Reset}
+	}
+
 	pieces := strings.Split(input, " ")
+
+	matchesRestoreCriu := regexp.MustCompile("restoreCRIU .+").Match([]byte(input))
+	if matchesRestoreCriu {
+		checkpointId, _ := strconv.Atoi(pieces[1])
+		return &command.Command{Code: command.RestoreCRIU, Argument: checkpointId}
+	}
 
 	matchesGlobalRestore := regexp.MustCompile("^r .+").Match([]byte(input))
 	if matchesGlobalRestore { // rollback operation (across n>=1 nodes)

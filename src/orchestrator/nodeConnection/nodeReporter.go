@@ -33,6 +33,10 @@ func (r NodeReporter) Register(pid *int, reply *int) error {
 	return nil
 }
 
+func Empty() {
+	registeredNodes = make(nodeMap)
+}
+
 func (r NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 	nodeId := cmd.NodeId
 

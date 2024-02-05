@@ -38,6 +38,7 @@ func GetRegisteredIds() []int {
 }
 
 func ConnectToAllNodes(desiredNodeCount int) {
+	logger.Info("Connecting")
 	for _, node := range registeredNodes {
 
 		if node.client == nil {
@@ -51,5 +52,13 @@ func ConnectToAllNodes(desiredNodeCount int) {
 		logger.Info("Connected to all nodes")
 	} else {
 		panic(fmt.Sprintf("%d nodes connected, want %d", len(registeredNodes), desiredNodeCount))
+	}
+}
+
+func DisconnectAllNodes() {
+	for _, node := range registeredNodes {
+		if node.client != nil {
+			node.client.Disconnect()
+		}
 	}
 }

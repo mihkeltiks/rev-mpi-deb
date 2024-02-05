@@ -6,17 +6,23 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"syscall"
+	"time"
 
+	"github.com/checkpoint-restore/go-criu/v7"
+	"github.com/checkpoint-restore/go-criu/v7/rpc"
 	"github.com/mihkeltiks/rev-mpi-deb/logger"
 	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/proc"
 	"github.com/mihkeltiks/rev-mpi-deb/utils"
+	"google.golang.org/protobuf/proto"
 )
 
 type CheckpointMode int
 
 const (
-	fileMode CheckpointMode = iota
+	CRIUMode CheckpointMode = iota
+	fileMode
 	forkMode
 )
 
@@ -53,10 +59,13 @@ func createCheckpoint(ctx *processContext, opName string) string {
 
 	var checkpoint cPoint
 
-	if ctx.checkpointMode == fileMode {
-		checkpoint = createFileCheckpoint(ctx, opName)
-	} else {
+	if ctx.checkpointMode == CRIUMode {
+		logger.Debug("CRIUMode checkpoint")
+		checkpoint = createCRIUCheckpoint(ctx, opName)
+	} else if ctx.checkpointMode == forkMode {
 		checkpoint = createForkCheckpoint(ctx, opName)
+	} else {
+		checkpoint = createFileCheckpoint(ctx, opName)
 	}
 
 	checkpoint.id = utils.RandomId()
@@ -151,6 +160,36 @@ func restoreForkCheckpoint(ctx *processContext, checkpoint cPoint) {
 	}
 }
 
+func createCRIUCheckpoint(ctx *processContext, opName string) cPoint {
+	logger.Debug("Executing CRIU checkpoint on: %v", ctx.pid)
+	c := criu.MakeCriu()
+
+	checkpointDir, err := os.MkdirTemp(fmt.Sprintf("%v/temp", utils.GetExecutableDir()), fmt.Sprintf("%s-cp-*", filepath.Base(ctx.targetFile)))
+	if err != nil {
+		logger.Error("Error creating folder, %v", err)
+	}
+	logger.Debug("Saving checkpoint into: %v", checkpointDir)
+
+	err = syscall.PtraceDetach(ctx.pid)
+	if err != nil {
+		logger.Debug("Error detaching from process: %v", err)
+	}
+	// Calls CRIU, saves process data to checkpointDir
+	Dump(c, strconv.Itoa(ctx.pid), false, checkpointDir, "")
+
+	err = syscall.PtraceAttach(ctx.pid)
+	if err != nil {
+		logger.Debug("Error attaching to process: %v", err)
+	}
+	checkpoint := cPoint{
+		opName:  opName,
+		file:    checkpointDir,
+		bpoints: make(breakpointData),
+	}
+
+	return checkpoint
+}
+
 func createFileCheckpoint(ctx *processContext, opName string) cPoint {
 	regs := getRegs(ctx, false)
 
@@ -217,4 +256,48 @@ func readMemoryContentsFromFile(checkpoint cPoint) {
 
 		checkpoint.regions[index].Contents = buffer
 	}
+}
+
+func Dump(c *criu.Criu, pidS string, pre bool, imgDir string, prevImg string) {
+	pid, err := strconv.ParseInt(pidS, 10, 32)
+	if err != nil {
+		logger.Error("Can't parse pid: %v", err)
+	}
+	img, err := os.Open(imgDir)
+	if err != nil {
+		logger.Error("Can't open image dir: %v", err)
+	}
+
+	opts := &rpc.CriuOpts{
+		Pid:            proto.Int32(int32(pid)),
+		ImagesDirFd:    proto.Int32(int32(img.Fd())),
+		LogLevel:       proto.Int32(4),
+		ShellJob:       proto.Bool(true),
+		LogToStderr:    proto.Bool(true),
+		LeaveRunning:   proto.Bool(true),
+		LogFile:        proto.String("dump.log"),
+		ExtUnixSk:      proto.Bool(true),
+		TcpEstablished: proto.Bool(true),
+	}
+
+	if prevImg != "" {
+		opts.ParentImg = proto.String(prevImg)
+		opts.TrackMem = proto.Bool(true)
+		time.Sleep(5 * time.Second)
+	}
+
+	if pre {
+		err = c.PreDump(opts, TestNfy{})
+	} else {
+		err = c.Dump(opts, TestNfy{})
+	}
+
+	if err != nil {
+		logger.Error("CRIU error during checkpoint: %v", err)
+	}
+	img.Close()
+}
+
+type TestNfy struct {
+	criu.NoNotify
 }

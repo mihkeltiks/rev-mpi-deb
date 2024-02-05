@@ -3,13 +3,16 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/mihkeltiks/rev-mpi-deb/logger"
 	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/dwarf"
 	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/proc"
+	"github.com/mihkeltiks/rev-mpi-deb/rpc"
 	"github.com/mihkeltiks/rev-mpi-deb/utils"
 	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
@@ -36,6 +39,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	}
 
 	switch cmd.Code {
+
 	case command.Bpoint:
 		err = setBreakPoint(ctx, ctx.sourceFile, cmd.Argument.(int))
 	case command.SingleStep:
@@ -53,6 +57,38 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 		printInstructions()
 	case command.PrintInternal:
 		printInternalData(ctx, cmd.Argument.(string))
+	case command.Stop:
+		process_id := os.Getpid()
+		logger.Info("Reached CRIU stop on pid %v from %v", ctx.pid, process_id)
+		if err := syscall.Kill(ctx.pid, syscall.SIGSTOP); err != nil {
+			fmt.Println("Error sending SIGSTOP to the child process:", err)
+		}
+	case command.Kill:
+		process_id := os.Getpid()
+		logger.Info("Reached CRIU kill on pid %v from %v", ctx.pid, process_id)
+
+		if err := syscall.Kill(-ctx.pid, syscall.SIGKILL); err != nil {
+			fmt.Println("Error detaching from the child process:", err)
+		}
+		syscall.Wait4(ctx.pid, nil, 0, nil)
+	case command.Detach:
+		process_id := os.Getpid()
+		logger.Info("Reached CRIU detach on pid %v from %v", ctx.pid, process_id)
+		if err := syscall.PtraceDetach(ctx.pid); err != nil {
+			fmt.Println("Error detaching from the child process:", err)
+		}
+	case command.Attach:
+		process_id := os.Getpid()
+		logger.Info("Reached attach on pid %v from %v", ctx.pid, process_id)
+		if err := syscall.PtraceAttach(ctx.pid); err != nil {
+			fmt.Println("Error attaching to the child process:", err)
+		}
+	case command.Reset:
+		logger.Info("Got reset command!")
+		disconnect(ctx)
+		time.Sleep(10 * time.Second)
+		connect(ctx)
+		logger.Info("Connected again")
 	}
 
 	if cmd.IsForwardProgressCommand() {
@@ -85,8 +121,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 			exited = continueExecution(ctx, false)
 		}
 	}
-
-	if !exited {
+	if !exited && command.Detach != cmd.Code && command.Kill != cmd.Code && command.Stop != cmd.Code && command.Reset != cmd.Code {
 		ctx.stack = getStack(ctx)
 
 		if cmd.IsProgressCommand() {
@@ -101,6 +136,25 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	if err != nil {
 		cmd.Result.Error = err.Error()
 	}
+}
+
+func disconnect(ctx *processContext) {
+	if ctx.nodeData != nil && ctx.nodeData.rpcClient != nil {
+		// Close the RPC connection
+		ctx.nodeData.rpcClient.Disconnect()
+	}
+}
+
+func connect(ctx *processContext) {
+	orchestratorAdress, _ := url.ParseRequestURI("localhost:3490")
+	ctx.nodeData = &nodeData{
+		rpcClient: rpc.Connect(orchestratorAdress),
+	}
+
+	ctx.nodeData.id = reportAsHealthy(ctx)
+	logger.SetRemoteClient(ctx.nodeData.rpcClient, ctx.nodeData.id)
+
+	logger.Info("Process (pid: %d) registered", os.Getpid())
 }
 
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {

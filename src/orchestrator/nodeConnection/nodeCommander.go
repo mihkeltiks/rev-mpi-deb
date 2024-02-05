@@ -32,6 +32,65 @@ func HandleRemotely(cmd *command.Command) error {
 	return nil
 }
 
+func Attach() (err error) {
+	for _, node := range registeredNodes {
+		if node.client != nil {
+			logger.Debug("Attaching debugger to process on node %v", node.id)
+			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Attach})
+			if err != nil {
+				logger.Error("Failed to attach debugger %d: %v", node.id, err)
+				break
+			}
+		}
+	}
+
+	return nil
+
+}
+
+func Stop() (err error) {
+	for _, node := range registeredNodes {
+		if node.client != nil {
+			logger.Debug("Stopping process on node %v", node.id)
+			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Stop})
+			if err != nil {
+				logger.Error("Failed to stop process %d: %v", node.id, err)
+				break
+			}
+		}
+	}
+	return nil
+}
+
+func Detach() (err error) {
+	for _, node := range registeredNodes {
+		if node.client != nil {
+			logger.Debug("Detaching debugger from process on node %v", node.id)
+			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Detach})
+			if err != nil {
+				logger.Error("Failed to detach debugger %d: %v", node.id, err)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+func Kill() (err error) {
+	for _, node := range registeredNodes {
+		if node.client != nil {
+			logger.Debug("Killing process on %v", node.id)
+			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Kill})
+			if err != nil {
+				logger.Error("Failed to kill %d: %v", node.id, err)
+				break
+			}
+		}
+	}
+	return nil
+}
+
 func ExecutePendingRollback() (err error) {
 	rollbackMap := checkpointmanager.GetPendingRollback()
 
