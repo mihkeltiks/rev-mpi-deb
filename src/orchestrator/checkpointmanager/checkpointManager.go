@@ -25,13 +25,38 @@ type checkpointRecord struct {
 	CurrentLocation bool
 }
 
+// Data structure for maintaining a list of recorded checkpoints by node
 type CheckpointLog map[NodeId][]*checkpointRecord
 
-// Data structure for maintaining a list of recorded checkpoints by node
+// Maintaining the state of the checkpointlog at checkpoint
+type CheckpointLogList []CheckpointLog
+
 var checkpointLog = make(CheckpointLog)
+var checkpointLogList CheckpointLogList
 
 func GetCheckpointLog() CheckpointLog {
 	return checkpointLog
+}
+
+func GetCheckpointLogIndex(index int) CheckpointLog {
+	return checkpointLogList[index]
+}
+
+func AddCheckpointLog() {
+	// Create a new map
+	newCheckpointLog := make(CheckpointLog)
+
+	// Copy the contents of checkpointLog into the new map
+	for k, v := range checkpointLog {
+		newCheckpointLog[k] = v
+	}
+
+	// Append the new map to checkpointLogList
+	checkpointLogList = append(checkpointLogList, newCheckpointLog)
+}
+
+func SetCheckpointLog(index int) {
+	checkpointLog = checkpointLogList[index]
 }
 
 var nodeRanks = make(map[NodeId]*int)

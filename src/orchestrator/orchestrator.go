@@ -28,6 +28,8 @@ var NODE_DEBUGGER_PATH = fmt.Sprintf("%s/node-debugger", utils.GetExecutableDir(
 
 const ORCHESTRATOR_PORT = 3490
 
+var checkpoints []string
+
 func main() {
 	logger.SetMaxLogLevel(logger.Levels.Verbose)
 	numProcesses, targetPath := cli.ParseArgs()
@@ -45,6 +47,7 @@ func main() {
 	}()
 
 	logger.Info("executing %v as an mpi job with %d processes", targetPath, numProcesses)
+	c := criu.MakeCriu()
 
 	// Start the MPI job
 	mpiProcess := exec.Command(
@@ -91,9 +94,12 @@ func main() {
 	time.Sleep(time.Second)
 	nodeconnection.ConnectToAllNodes(numProcesses)
 
-	time.Sleep(time.Second)
+	time.Sleep(3 * time.Second)
 
-	var checkpoints []string
+	checkpointCRIU(numProcesses, c, mpiProcess.Process.Pid, true)
+	checkpointmanager.AddCheckpointLog()
+	websocket.HandleCriuCheckpoint()
+
 	cli.PrintInstructions()
 
 	for {
@@ -112,12 +118,9 @@ func main() {
 			handleRollbackSubmission(cmd)
 			break
 		case command.CheckpointCRIU:
-			nodeconnection.Stop()
-			nodeconnection.Detach()
-			time.Sleep(1 * time.Second)
-			checkpointDir := checkpointCRIU(mpiProcess.Process.Pid, true)
-			checkpoints = append(checkpoints, checkpointDir)
-			nodeconnection.Attach()
+			checkpointCRIU(numProcesses, c, mpiProcess.Process.Pid, true)
+			checkpointmanager.AddCheckpointLog()
+			websocket.HandleCriuCheckpoint()
 			break
 		case command.Stop:
 			nodeconnection.Stop()
@@ -128,44 +131,11 @@ func main() {
 		case command.Attach:
 			nodeconnection.Attach()
 			break
-		case command.Kill:
-			nodeconnection.Stop()
-			nodeconnection.Detach()
-			time.Sleep(1 * time.Second)
-			checkpointDir := checkpointCRIU(mpiProcess.Process.Pid, false)
-			checkpoints = append(checkpoints, checkpointDir)
-			// logger.Info("Killing %s", mpiProcess.Process.Pid)
-			// nodeconnection.Kill()
-			// time.Sleep(1 * time.Second)
-			// if err := syscall.Kill(-mpiProcess.Process.Pid, syscall.SIGKILL); err != nil {
-			// 	fmt.Println("Error killing process:", err)
-			// }
-			// syscall.Wait4(mpiProcess.Process.Pid, nil, 0, nil)
-			break
 		case command.RestoreCRIU:
-			_ = restoreCriu(checkpoints[cmd.Argument.(int)])
-			time.Sleep(2 * time.Second)
-			// nodeconnection.ConnectToAllNodes(numProcesses)
-			break
-		case command.Connect:
-			nodeconnection.Empty()
-			nodeconnection.ConnectToAllNodes(numProcesses)
-			logger.Info("HERE")
-			break
-		case command.Disconnect:
-			nodeconnection.DisconnectAllNodes()
-			break
-		case command.Reset:
-			nodeconnection.Stop()
-			nodeconnection.Detach()
-			nodeconnection.HandleRemotely(cmd)
-			time.Sleep(1 * time.Second)
-			checkpointDir := checkpointCRIU(mpiProcess.Process.Pid, false)
-			checkpoints = append(checkpoints, checkpointDir)
-			// nodeconnection.Empty()
-			// time.Sleep(2 * time.Second)
-
-			// nodeconnection.ConnectToAllNodes(numProcesses)
+			index := cmd.Argument.(int)
+			restoreCriu(checkpoints[index], mpiProcess.Process.Pid, numProcesses)
+			websocket.HandleCriuRestore(index)
+			checkpointmanager.SetCheckpointLog(index)
 			break
 		default:
 			nodeconnection.HandleRemotely(cmd)
@@ -175,22 +145,44 @@ func main() {
 	}
 }
 
-func restoreCriu(checkpointDir string) *os.File {
+func connectBackToNodes(numProcesses int) {
+	for nodeconnection.GetRegisteredNodesLen() < numProcesses {
+	}
+	nodeconnection.ConnectToAllNodes(numProcesses)
+	nodeconnection.Attach()
+}
+
+func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
+	nodeconnection.Kill()
+	nodeconnection.DisconnectAllNodes()
+	nodeconnection.Empty()
+
+	time.Sleep(1 * time.Second)
+	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
+		fmt.Println("Error killing process:", err)
+	}
+	syscall.Wait4(pid, nil, 0, nil)
 	logger.Info("RESTORING %s", checkpointDir)
 
 	cmd := exec.Command("/usr/local/sbin/criu", "restore", "-v4", "-o", "restore.log", "-j", "--tcp-established", "-D", checkpointDir)
 
 	f, err := pty.Start(cmd)
 	if err != nil {
-		logger.Info("ERROR WITH PTY", err)
+		logger.Info("ERROR WITH PTY %s", err)
 	}
 	logger.Info("RESTORED")
 
+	connectBackToNodes(numProcesses)
 	return f
 }
 
-func checkpointCRIU(pid int, leave_running bool) (checkpointDir string) {
-	c := criu.MakeCriu()
+func checkpointCRIU(numProcesses int, c *criu.Criu, pid int, leave_running bool) {
+	nodeconnection.Stop()
+	nodeconnection.Detach()
+	nodeconnection.Reset()
+	nodeconnection.DisconnectAllNodes()
+	nodeconnection.Empty()
+	time.Sleep(time.Second)
 
 	checkpointDir, err := os.MkdirTemp(fmt.Sprintf("%v/temp", utils.GetExecutableDir()), "cp-*")
 	if err != nil {
@@ -201,7 +193,10 @@ func checkpointCRIU(pid int, leave_running bool) (checkpointDir string) {
 	// Calls CRIU, saves process data to checkpointDir
 	Dump(c, strconv.Itoa(pid), false, checkpointDir, "", leave_running)
 
-	return checkpointDir
+	checkpoints = append(checkpoints, checkpointDir)
+	time.Sleep(1 * time.Second)
+
+	connectBackToNodes(numProcesses)
 }
 
 func Dump(c *criu.Criu, pidS string, pre bool, imgDir string, prevImg string, leave_running bool) {

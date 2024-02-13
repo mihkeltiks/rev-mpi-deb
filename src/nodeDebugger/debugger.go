@@ -124,7 +124,7 @@ func handleCLIWorkflow(ctx *processContext) {
 type LoggerWriter struct{}
 
 func (l LoggerWriter) Write(p []byte) (n int, err error) {
-	logger.Verbose("Writing d bytes", len(p))
+	logger.Verbose("Writing d bytes %d", len(p))
 	return os.Stdout.Write(p)
 }
 

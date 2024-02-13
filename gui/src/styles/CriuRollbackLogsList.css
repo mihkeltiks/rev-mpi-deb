@@ -1,0 +1,16 @@
+.list-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+}
+
+.list-item {
+  cursor: pointer;
+  padding: 10px;
+  border: 1px solid #ccc;
+  margin: 5px;
+}
+
+.list-item.selected {
+  background-color: gray;
+}

@@ -46,6 +46,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 		exited = continueExecution(ctx, true)
 	case command.Cont:
 		exited = continueExecution(ctx, false)
+		logger.Verbose("%t", exited)
 	case command.Restore:
 		checkpointId := cmd.Argument.(string)
 		err = restoreCheckpoint(ctx, checkpointId)
@@ -86,7 +87,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	case command.Reset:
 		logger.Info("Got reset command!")
 		disconnect(ctx)
-		time.Sleep(10 * time.Second)
+		time.Sleep(2 * time.Second)
 		connect(ctx)
 		logger.Info("Connected again")
 	}
@@ -183,7 +184,7 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 	var waitStatus syscall.WaitStatus
 
 	for i := 0; i < 100; i++ {
-
+		logger.Verbose("here")
 		if singleStep {
 			err := syscall.PtraceSingleStep(ctx.pid)
 			utils.Must(err)
@@ -191,9 +192,9 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 			err := syscall.PtraceCont(ctx.pid, 0)
 			utils.Must(err)
 		}
-
+		logger.Verbose("Here")
 		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)
-
+		logger.Verbose("Here!")
 		if waitStatus.Exited() {
 			logger.Verbose("The binary exited with code %v", waitStatus.ExitStatus())
 			return true

@@ -62,3 +62,7 @@ func DisconnectAllNodes() {
 		}
 	}
 }
+
+func GetRegisteredNodesLen() int {
+	return len(registeredNodes)
+}

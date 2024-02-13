@@ -14,6 +14,8 @@ const (
 	RollbackSubmit   MessageType = "rollbackSubmit"
 	RollbackConfirm  MessageType = "rollbackConfirm"
 	RollbackResult   MessageType = "rollbackResult"
+	CriuCheckpoint   MessageType = "criuCheckpoint"
+	CriuRestore      MessageType = "criuRestore"
 )
 
 type CheckpointUpdateMessage struct {
@@ -72,5 +74,23 @@ func handleRollbackCommit(execute bool) {
 		checkpointmanager.ResetPendingRollback()
 	}
 
+	cli.PrintPrompt()
+}
+
+func HandleCriuRestore(index int) {
+	logger.Verbose("Handling criu rollback")
+	SendMessage(RollbackResultMessage{
+		Type:  CriuRestore,
+		Value: checkpointmanager.GetCheckpointLogIndex(index),
+	})
+	cli.PrintPrompt()
+}
+
+func HandleCriuCheckpoint() {
+	logger.Verbose("Handling criu Checkpoint")
+	SendMessage(RollbackResultMessage{
+		Type:  CriuCheckpoint,
+		Value: checkpointmanager.GetCheckpointLog(),
+	})
 	cli.PrintPrompt()
 }

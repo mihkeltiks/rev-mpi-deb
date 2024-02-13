@@ -6,9 +6,10 @@ import useCheckpointLog from './hooks/useCheckpointLog';
 import useRollback from './hooks/useRollback';
 
 import * as websocket from './websocket';
+import CriuRollbackLogsList from './components/CriuRollBackLogsList';
 
 const App = () => {
-	const { onWSMessage, checkpointLog } = useCheckpointLog();
+	const { onWSMessage, checkpointLog, setCheckpointLog, criuRollbackLogs, currentCheckpointLog, selectedIndex, setSelectedIndex } = useCheckpointLog();
 
 	const {
 		onWSMessage: onRollbackMessage,
@@ -29,6 +30,8 @@ const App = () => {
 
 	return (
 		<>
+			<CriuRollbackLogsList criuRollbackLogs={criuRollbackLogs} setCheckpointLog={setCheckpointLog} currentCheckpointLog={currentCheckpointLog} selectedIndex={selectedIndex} setSelectedIndex={setSelectedIndex} />
+
 			{pendingRollbackNodes ? (
 				<>
 					<span>Orange checkpoints will be restored</span>
@@ -40,12 +43,14 @@ const App = () => {
 					<span>Click a green node to roll back to this checkpoint</span>
 				)
 			)}
+
 			<MessageGraph
 				pendingRollbackOriginalCheckpoint={pendingRollbackOriginalCheckpoint}
 				onRollbackSubmit={onRollbackSubmit}
 				checkpointLog={checkpointLog}
 				pendingRollbackNodes={pendingRollbackNodes}
 			/>
+			
 		</>
 	);
 };
