@@ -96,7 +96,7 @@ func (d *DwarfData) PCToLine(pc uint64) (line int, file string, function *Functi
 		if pc >= module.startAddress && pc <= module.endAddress {
 			for _, entry := range module.entries {
 				if entry.Address == pc {
-					function := d.Func(pc)
+					function := d.PCToFunc(pc)
 
 					return entry.line, module.files[entry.file], function, nil
 				}
