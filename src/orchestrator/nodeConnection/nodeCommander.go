@@ -12,6 +12,10 @@ import (
 
 func HandleRemotely(cmd *command.Command) error {
 	nodeId := cmd.NodeId
+	if nodeId == -1 {
+		return GlobalHandleRemotely(cmd)
+	}
+
 	node := registeredNodes[nodeId]
 
 	if node == nil {
@@ -28,6 +32,25 @@ func HandleRemotely(cmd *command.Command) error {
 	}
 
 	logger.Debug("Command %v dispatched successfully to node %d", cmd, node.id)
+	return nil
+}
+
+func GlobalHandleRemotely(cmd *command.Command) (err error) {
+	logger.Info("Distributing global command")
+	for _, node := range registeredNodes {
+		if node.client != nil {
+			logger.Debug("Reseting %v", node.id)
+			err := node.client.Call("RemoteCmdHandler.Handle", cmd, new(int))
+
+			if err != nil {
+				logger.Error("Error dispatching command: %v", err)
+				return err
+			}
+			logger.Debug("Command %v dispatched successfully to node %d", cmd, node.id)
+
+		}
+	}
+
 	return nil
 }
 

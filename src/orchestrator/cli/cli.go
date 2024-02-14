@@ -101,6 +101,13 @@ func matchPidRegexp(input string, exp string) bool {
 	return regexp.MustCompile(fullExpr).Match([]byte(input))
 }
 
+func matchAllRegexp(input string, exp string) bool {
+
+	fullExpr := fmt.Sprintf(`^all %v$`, exp)
+
+	return regexp.MustCompile(fullExpr).Match([]byte(input))
+}
+
 func AskForRollbackCommit() bool {
 	var s string
 

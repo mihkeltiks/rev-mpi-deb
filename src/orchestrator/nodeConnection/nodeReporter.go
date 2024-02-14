@@ -1,6 +1,7 @@
 package nodeconnection
 
 import (
+	"sync"
 	"time"
 
 	"github.com/mihkeltiks/rev-mpi-deb/logger"
@@ -10,16 +11,18 @@ import (
 )
 
 type NodeReporter struct {
+	mu                   sync.Mutex
 	checkpointRecordChan chan<- rpc.MPICallRecord
 	quit                 func()
 }
 
 func NewNodeReporter(checkpointRecordChan chan<- rpc.MPICallRecord, quit func()) *NodeReporter {
-	return &NodeReporter{checkpointRecordChan, quit}
+	return &NodeReporter{sync.Mutex{}, checkpointRecordChan, quit}
 }
 
-func (r NodeReporter) Register(pid *int, reply *int) error {
-
+func (r *NodeReporter) Register(pid *int, reply *int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	node := node{
 		id:  len(registeredNodes),
 		pid: *pid,
@@ -37,7 +40,7 @@ func Empty() {
 	registeredNodes = make(nodeMap)
 }
 
-func (r NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
+func (r *NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 	nodeId := cmd.NodeId
 
 	if len(cmd.Result.Error) > 0 {
@@ -66,12 +69,12 @@ func (r NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 	return nil
 }
 
-func (r NodeReporter) Progress(cmd *command.Command, reply *int) error {
+func (r *NodeReporter) Progress(cmd *command.Command, reply *int) error {
 	checkpointmanager.RemoveCurrentCheckpointMarkersOnNode(checkpointmanager.NodeId(cmd.NodeId))
 	return nil
 }
 
-func (r NodeReporter) MPICall(callRecord rpc.MPICallRecord, reply *int) error {
+func (r *NodeReporter) MPICall(callRecord rpc.MPICallRecord, reply *int) error {
 	r.checkpointRecordChan <- callRecord
 	return nil
 }

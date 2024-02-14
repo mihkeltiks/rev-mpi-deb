@@ -72,6 +72,27 @@ func parseCommandFromString(input string) (c *command.Command) {
 		return &command.Command{Code: command.GlobalRollback, Argument: checkpointId}
 	}
 
+	// All node commands
+	pid, _ := strconv.Atoi(pieces[0])
+
+	matchesAllRegexp := regexp.MustCompile(`^all .+`).Match([]byte(input))
+
+	if matchesAllRegexp { // rollback operation (across n>=1 nodes)
+		switch {
+		case matchAllRegexp(input, `[b|B] \d+`): // breakpoint
+			lineNr, _ := strconv.Atoi(pieces[2])
+			return &command.Command{NodeId: -1, Code: command.Bpoint, Argument: lineNr}
+		case matchAllRegexp(input, "[c|C]"): // continue
+			return &command.Command{NodeId: -1, Code: command.Cont}
+		case matchAllRegexp(input, "[s|S]"): // single step
+			return &command.Command{NodeId: -1, Code: command.SingleStep}
+		case matchAllRegexp(input, `[p|P] [a-zA-Z_][a-zA-Z0-9_]*`): // print variable
+			identifier := strings.Split(input, " ")[2]
+			return &command.Command{NodeId: -1, Code: command.Print, Argument: identifier}
+		default:
+			return nil
+		}
+	}
 	// Node-specific commands (relayed to designated node for execution)
 
 	matchesPidRegexp := regexp.MustCompile(`^\d+ .+`).Match([]byte(input))
@@ -80,8 +101,6 @@ func parseCommandFromString(input string) (c *command.Command) {
 		logger.Warn("error parsing break command - no pid specified")
 		return nil
 	}
-
-	pid, _ := strconv.Atoi(pieces[0])
 
 	switch {
 

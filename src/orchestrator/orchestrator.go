@@ -122,15 +122,6 @@ func main() {
 			checkpointmanager.AddCheckpointLog()
 			websocket.HandleCriuCheckpoint()
 			break
-		case command.Stop:
-			nodeconnection.Stop()
-			break
-		case command.Detach:
-			nodeconnection.Detach()
-			break
-		case command.Attach:
-			nodeconnection.Attach()
-			break
 		case command.RestoreCRIU:
 			index := cmd.Argument.(int)
 			restoreCriu(checkpoints[index], mpiProcess.Process.Pid, numProcesses)
