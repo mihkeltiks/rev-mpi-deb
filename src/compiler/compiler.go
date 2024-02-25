@@ -70,18 +70,10 @@ func executeWorkflow() error {
 }
 
 func compile(sourcePath string, destPath string) error {
-	source, _ := os.Open(sourcePath)
-	scanner := bufio.NewScanner(source)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		fmt.Println(line)
-	}
-	source.Close()
 	cmd := exec.Command("mpicc", "-g3", "-O0", "-no-pie", "-I", WRAPPED_MPI_PATH, "-o", destPath, sourcePath)
 
 	logger.Info("compiling target")
-	logger.Verbose("%v", cmd)
+	// logger.Verbose("%v", cmd)
 
 	cmd.Stderr = os.Stderr
 

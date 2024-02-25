@@ -19,7 +19,7 @@ function CriuRollbackLogsList({ criuRollbackLogs, setCheckpointLog, currentCheck
     <div className="list-container">
       {sortedLogs.map((log, index) => (
         <div key={index} className={`list-item ${index === selectedIndex ? 'selected' : ''}`} onClick={() => handleListClick(index)}>
-          {index == 0 ? 'Current' : `Checkpoint ${index}`}
+          {index == 0 ? 'Current' : `Checkpoint ${index-1}`}
         </div>
       ))}
     </div>

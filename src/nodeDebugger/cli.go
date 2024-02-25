@@ -24,6 +24,7 @@ func askForInput() *command.Command {
 	command := parseCommandFromString(userInput)
 
 	if command == nil {
+		logger.Debug("DEBUGCLI")
 		fmt.Println(`Invalid input. Type "help" to see available commands`)
 		return askForInput()
 	}

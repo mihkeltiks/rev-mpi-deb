@@ -88,8 +88,12 @@ func (m Module) String() string {
 	return fmt.Sprintf("{\nname:%s\nstart:%#x\nend:%#x\nfiles: %v\nfunctions: %v\n}", m.name, m.startAddress, m.endAddress, m.files, functionString)
 }
 
+func (fn *Function) SetLine(line int64) {
+	fn.line = line
+}
+
 func (fn Function) String() string {
-	return fmt.Sprintf("{name:%s start:%x end:%x params:%v }", fn.name, fn.lowPC, fn.highPC, fn.Parameters)
+	return fmt.Sprintf("{name:%s line: %d start:%x end:%x params:%v }", fn.name, fn.line, fn.lowPC, fn.highPC, fn.Parameters)
 }
 
 func (fn *Function) Name() string {

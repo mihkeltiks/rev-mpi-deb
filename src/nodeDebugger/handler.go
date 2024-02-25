@@ -32,7 +32,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	var err error
 	var exited bool
 
-	logger.Verbose("handling command %v", cmd)
+	// logger.Verbose("handling command %v", cmd)
 
 	if cmd.IsForwardProgressCommand() {
 		reportProgressCommand(ctx, cmd)
@@ -46,7 +46,6 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 		exited = continueExecution(ctx, true)
 	case command.Cont:
 		exited = continueExecution(ctx, false)
-		logger.Verbose("%t", exited)
 	case command.Restore:
 		checkpointId := cmd.Argument.(string)
 		err = restoreCheckpoint(ctx, checkpointId)
@@ -59,37 +58,37 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	case command.PrintInternal:
 		printInternalData(ctx, cmd.Argument.(string))
 	case command.Stop:
-		process_id := os.Getpid()
-		logger.Info("Reached CRIU stop on pid %v from %v", ctx.pid, process_id)
+		// process_id := os.Getpid()
+		// logger.Info("Reached CRIU stop on pid %v from %v", ctx.pid, process_id)
 		if err := syscall.Kill(ctx.pid, syscall.SIGSTOP); err != nil {
 			fmt.Println("Error sending SIGSTOP to the child process:", err)
 		}
 	case command.Kill:
-		process_id := os.Getpid()
-		logger.Info("Reached CRIU kill on pid %v from %v", ctx.pid, process_id)
+		// process_id := os.Getpid()
+		// logger.Info("Reached CRIU kill on pid %v from %v", ctx.pid, process_id)
 
 		if err := syscall.Kill(-ctx.pid, syscall.SIGKILL); err != nil {
 			fmt.Println("Error detaching from the child process:", err)
 		}
 		syscall.Wait4(ctx.pid, nil, 0, nil)
 	case command.Detach:
-		process_id := os.Getpid()
-		logger.Info("Reached CRIU detach on pid %v from %v", ctx.pid, process_id)
+		// process_id := os.Getpid()
+		// logger.Info("Reached CRIU detach on pid %v from %v", ctx.pid, process_id)
 		if err := syscall.PtraceDetach(ctx.pid); err != nil {
 			fmt.Println("Error detaching from the child process:", err)
 		}
 	case command.Attach:
-		process_id := os.Getpid()
-		logger.Info("Reached attach on pid %v from %v", ctx.pid, process_id)
+		// process_id := os.Getpid()
+		// logger.Info("Reached attach on pid %v from %v", ctx.pid, process_id)
 		if err := syscall.PtraceAttach(ctx.pid); err != nil {
 			fmt.Println("Error attaching to the child process:", err)
 		}
 	case command.Reset:
-		logger.Info("Got reset command!")
+		// logger.Info("Got reset command!")
 		disconnect(ctx)
-		time.Sleep(2 * time.Second)
+		time.Sleep(time.Duration(1200) * time.Millisecond)
 		connect(ctx)
-		logger.Info("Connected again")
+		// logger.Info("Connected again")
 	}
 
 	if cmd.IsForwardProgressCommand() {
@@ -122,7 +121,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 			exited = continueExecution(ctx, false)
 		}
 	}
-	if !exited && command.Detach != cmd.Code && command.Kill != cmd.Code && command.Stop != cmd.Code && command.Reset != cmd.Code {
+	if !exited && command.Detach != cmd.Code && command.Kill != cmd.Code && command.Stop != cmd.Code && cmd.Code != command.Reset {
 		ctx.stack = getStack(ctx)
 
 		if cmd.IsProgressCommand() {
@@ -155,7 +154,7 @@ func connect(ctx *processContext) {
 	ctx.nodeData.id = reportAsHealthy(ctx)
 	logger.SetRemoteClient(ctx.nodeData.rpcClient, ctx.nodeData.id)
 
-	logger.Info("Process (pid: %d) registered", os.Getpid())
+	// logger.Info("Process (pid: %d) registered", os.Getpid())
 }
 
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
@@ -184,7 +183,6 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 	var waitStatus syscall.WaitStatus
 
 	for i := 0; i < 100; i++ {
-		logger.Verbose("here")
 		if singleStep {
 			err := syscall.PtraceSingleStep(ctx.pid)
 			utils.Must(err)
@@ -192,9 +190,7 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 			err := syscall.PtraceCont(ctx.pid, 0)
 			utils.Must(err)
 		}
-		logger.Verbose("Here")
 		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)
-		logger.Verbose("Here!")
 		if waitStatus.Exited() {
 			logger.Verbose("The binary exited with code %v", waitStatus.ExitStatus())
 			return true
@@ -267,7 +263,7 @@ func getVariableFromMemory(ctx *processContext, identifier string, suppressLoggi
 
 	if variable == nil {
 		if !suppressLogging {
-			logger.Info("Cannot locate variable: %s", identifier)
+			logger.Verbose("Cannot locate variable: %s", identifier)
 		}
 
 		return nil
@@ -297,7 +293,6 @@ func getVariableFromMemory(ctx *processContext, identifier string, suppressLoggi
 	rawValue := peekDataFromMemory(ctx, address, variable.ByteSize())
 	// rawValue := proc.ReadFromMemFile(ctx.pid, address, int(variable.baseType.byteSize))
 	// logger.Debug("raw value of variable: %v", rawValue)
-
 	// Convert the binary value to accurate type representation
 	return convertValueToType(rawValue, variable)
 }
@@ -328,6 +323,12 @@ func convertValueToType(data []byte, variable *dwarf.Variable) interface{} {
 
 func printInternalData(ctx *processContext, varName string) {
 	switch varName {
+	case "last":
+		logger.Info("%d", len(ctx.stack))
+		funct := getLastExecutedFunction(ctx.stack)
+		funct2 := ctx.stack[0].function
+		logger.Info(funct.String())
+		logger.Info(funct2.String())
 	case "types":
 		logger.Info("dwarf types:\n%v", ctx.dwarfData.Types)
 	case "modules":

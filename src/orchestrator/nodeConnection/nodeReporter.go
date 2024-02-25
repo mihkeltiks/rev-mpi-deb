@@ -30,7 +30,7 @@ func (r *NodeReporter) Register(pid *int, reply *int) error {
 
 	registeredNodes[node.id] = &node
 
-	logger.Verbose("added process %d (pid: %d) to process list", node.id, node.pid)
+	// logger.Verbose("added process %d (pid: %d) to process list", node.id, node.pid)
 
 	*reply = node.id
 	return nil
@@ -49,7 +49,7 @@ func (r *NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 			nodeId, cmd.Result.Error,
 		)
 	} else {
-		logger.Verbose("Node %v successfully executed command %v", nodeId, cmd)
+		// logger.Verbose("Node %v successfully executed command %v", nodeId, cmd)
 	}
 
 	if cmd.Result.Exited {

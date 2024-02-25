@@ -5,7 +5,6 @@ import (
 	"debug/elf"
 	"io"
 	"reflect"
-    "fmt"
 )
 
 func ParseDwarfData(targetFile string) *DwarfData {
@@ -110,15 +109,15 @@ func parseFunctionParameter(entry *dwarf.Entry, data *DwarfData) *Parameter {
 		}
 	}
 	name := entry.Val(dwarf.AttrName)
-	if name == nil {  
+	if name == nil {
 		return nil
 	}
 	parameter := &Parameter{
-		Name:				  entry.Val(dwarf.AttrName). (string),
+		Name:                 entry.Val(dwarf.AttrName).(string),
 		baseType:             baseType,
 		locationInstructions: entry.Val(dwarf.AttrLocation).([]byte),
 	}
-	
+
 	return parameter
 }
 
@@ -139,8 +138,6 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *Function {
 			function.col = field.Val.(int64)
 		case dwarf.AttrFrameBase:
 
-			fmt.Printf("frame base : %v, %v, %T, %x\n", field.Attr, field.Val, field.Val, field.Val)
-
 			// buf := new(bytes.Buffer)
 			// op.PrettyPrint(buf, field.Val.([]byte))
 			// fmt.Println(buf.String())
@@ -156,7 +153,7 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *Function {
 	if err != nil {
 		panic(err)
 	}
-    if(ranges!=nil){
+	if ranges != nil {
 		function.lowPC = ranges[0][0]
 		function.highPC = ranges[0][1]
 	}

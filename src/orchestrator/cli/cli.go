@@ -72,6 +72,7 @@ func AskForInput() *command.Command {
 
 	if command == nil {
 		fmt.Println(`Invalid input. Type "help" to see available commands`)
+		logger.Debug("CLI")
 		return AskForInput()
 	}
 

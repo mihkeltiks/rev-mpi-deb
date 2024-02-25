@@ -89,7 +89,6 @@ func Attach() (err error) {
 func Stop() (err error) {
 	for _, node := range registeredNodes {
 		if node.client != nil {
-			logger.Debug("Stopping process on node %v", node.id)
 			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Stop})
 			if err != nil {
 				logger.Error("Failed to stop process %d: %v", node.id, err)
@@ -103,7 +102,6 @@ func Stop() (err error) {
 func Detach() (err error) {
 	for _, node := range registeredNodes {
 		if node.client != nil {
-			logger.Debug("Detaching debugger from process on node %v", node.id)
 			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Detach})
 			if err != nil {
 				logger.Error("Failed to detach debugger %d: %v", node.id, err)
@@ -118,7 +116,6 @@ func Detach() (err error) {
 func Kill() (err error) {
 	for _, node := range registeredNodes {
 		if node.client != nil {
-			logger.Debug("Killing process on %v", node.id)
 			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Kill})
 			if err != nil {
 				logger.Error("Failed to kill %d: %v", node.id, err)

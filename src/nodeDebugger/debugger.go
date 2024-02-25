@@ -58,7 +58,7 @@ func main() {
 		ctx.nodeData.id = reportAsHealthy(ctx)
 		logger.SetRemoteClient(ctx.nodeData.rpcClient, ctx.nodeData.id)
 
-		logger.Info("Process (pid: %d) registered", os.Getpid())
+		// logger.Info("Process (pid: %d) registered", os.Getpid())
 	}
 
 	// parse debugging data
@@ -111,6 +111,7 @@ func handleCLIWorkflow(ctx *processContext) {
 	printInstructions()
 
 	for {
+		logger.Verbose("DEBUG")
 		cmd := askForInput()
 
 		handleCommand(ctx, cmd)

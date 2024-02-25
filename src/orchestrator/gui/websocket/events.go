@@ -83,7 +83,6 @@ func HandleCriuRestore(index int) {
 		Type:  CriuRestore,
 		Value: checkpointmanager.GetCheckpointLogIndex(index),
 	})
-	cli.PrintPrompt()
 }
 
 func HandleCriuCheckpoint() {
@@ -92,5 +91,4 @@ func HandleCriuCheckpoint() {
 		Type:  CriuCheckpoint,
 		Value: checkpointmanager.GetCheckpointLog(),
 	})
-	cli.PrintPrompt()
 }

@@ -38,7 +38,6 @@ func GetRegisteredIds() []int {
 }
 
 func ConnectToAllNodes(desiredNodeCount int) {
-	logger.Info("Connecting")
 	for _, node := range registeredNodes {
 
 		if node.client == nil {

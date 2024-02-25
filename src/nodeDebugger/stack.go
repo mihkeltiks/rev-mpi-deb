@@ -18,6 +18,13 @@ type stackFunction struct {
 	stackAddress uint64
 }
 
+func getLastExecutedFunction(stack programStack) *dwarf.Function {
+	if len(stack) == 0 {
+		return nil
+	}
+	return stack[len(stack)-1].function
+}
+
 func (stack programStack) String() string {
 	str := ""
 	for index, stackFunction := range stack {

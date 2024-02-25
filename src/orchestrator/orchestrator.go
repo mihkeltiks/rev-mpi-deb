@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -99,39 +100,33 @@ func main() {
 	checkpointCRIU(numProcesses, c, mpiProcess.Process.Pid, true)
 	checkpointmanager.AddCheckpointLog()
 	websocket.HandleCriuCheckpoint()
+	time.Sleep(time.Duration(500) * time.Millisecond)
 
 	cli.PrintInstructions()
 
 	for {
 		cmd := cli.AskForInput()
-
 		switch cmd.Code {
 		case command.Quit:
 			quit()
 		case command.Help:
 			cli.PrintInstructions()
-			break
 		case command.ListCheckpoints:
 			checkpointmanager.ListCheckpoints()
-			break
 		case command.GlobalRollback:
 			handleRollbackSubmission(cmd)
-			break
 		case command.CheckpointCRIU:
 			checkpointCRIU(numProcesses, c, mpiProcess.Process.Pid, true)
 			checkpointmanager.AddCheckpointLog()
 			websocket.HandleCriuCheckpoint()
-			break
 		case command.RestoreCRIU:
 			index := cmd.Argument.(int)
 			restoreCriu(checkpoints[index], mpiProcess.Process.Pid, numProcesses)
 			websocket.HandleCriuRestore(index)
 			checkpointmanager.SetCheckpointLog(index)
-			break
 		default:
 			nodeconnection.HandleRemotely(cmd)
 			time.Sleep(time.Second)
-			break
 		}
 	}
 }
@@ -155,13 +150,15 @@ func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
 	syscall.Wait4(pid, nil, 0, nil)
 	logger.Info("RESTORING %s", checkpointDir)
 
-	cmd := exec.Command("/usr/local/sbin/criu", "restore", "-v4", "-o", "restore.log", "-j", "--tcp-established", "-D", checkpointDir)
+	cmd := exec.Command("criu", "restore", "-v4", "--unprivileged", "-o", "restore.log", "-j", "--tcp-established", "-D", checkpointDir)
 
 	f, err := pty.Start(cmd)
 	if err != nil {
 		logger.Info("ERROR WITH PTY %s", err)
 	}
-	logger.Info("RESTORED")
+	go func() {
+		io.Copy(os.Stdout, f)
+	}()
 
 	connectBackToNodes(numProcesses)
 	return f
@@ -179,7 +176,6 @@ func checkpointCRIU(numProcesses int, c *criu.Criu, pid int, leave_running bool)
 	if err != nil {
 		logger.Error("Error creating folder, %v", err)
 	}
-	logger.Info("Saving checkpoint into: %v", checkpointDir)
 
 	// Calls CRIU, saves process data to checkpointDir
 	Dump(c, strconv.Itoa(pid), false, checkpointDir, "", leave_running)
@@ -210,6 +206,7 @@ func Dump(c *criu.Criu, pidS string, pre bool, imgDir string, prevImg string, le
 		LogFile:        proto.String("dump.log"),
 		ExtUnixSk:      proto.Bool(true),
 		TcpEstablished: proto.Bool(true),
+		Unprivileged:   proto.Bool(true),
 	}
 
 	if prevImg != "" {
