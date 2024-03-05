@@ -1,13 +1,12 @@
-
-
 # Causally Consistent Reversible Debugger for MPI
 
 ---
 
 ## Running on linux
-currently only x86 architecture is supported
+Currently only x86_64 architecture is supported. Since CRIU requires root it is recommended to run as a container or on a virtual machine. This has been tested with Go/1.21, MPICH/3.4.3, and requires an MPI compiler that is capable of producing level 4 DWARF data. Running might require editing root user $PATH to execute mpirun and CRIU.
 
 ### build
+
 ```bash
 make
 ```
@@ -33,19 +32,3 @@ Compile them first (`bin/compiler examples/<example-application-file>`)
 
 <br>
 <br>
-
-## Other platforms (use Docker)
-
-### build
-
-```bash
-# in the project root directory
-make dockerimage
-```
-
-Compiling MPI programs is not supported when running with docker. Use the included examples in bin/targets folder.
-### run
-```bash
-# use the included compiled examples
-./runInDocker.sh <num_processes> bin/examples/<example-application-binary
-```

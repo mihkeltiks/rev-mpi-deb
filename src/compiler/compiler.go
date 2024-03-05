@@ -70,7 +70,7 @@ func executeWorkflow() error {
 }
 
 func compile(sourcePath string, destPath string) error {
-	cmd := exec.Command("mpicc", "-g3", "-O0", "-no-pie", "-I", WRAPPED_MPI_PATH, "-o", destPath, sourcePath)
+	cmd := exec.Command("mpicc", "-g3", "-gdwarf-4", "-O0", "-no-pie", "-I", WRAPPED_MPI_PATH, "-o", destPath, sourcePath)
 
 	logger.Info("compiling target")
 	// logger.Verbose("%v", cmd)
