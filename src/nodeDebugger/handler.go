@@ -97,8 +97,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 			if exited {
 				break
 			}
-
-			bpoint, _ := restoreCaughtBreakpoint(ctx)
+			bpoint, _, line := restoreCaughtBreakpoint(ctx)
 
 			if bpoint == nil {
 				break
@@ -114,7 +113,16 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 				recordMPIOperation(ctx, bpoint)
 			}
 
-			if !bpoint.isMPIBpoint || cmd.Code == command.SingleStep {
+			if bpoint.ignoreFirstHit {
+				logger.Verbose("HERE IGNORE")
+				ctx.stack = getStack(ctx)
+				// single-step, then reinsert bp
+				continueExecution(ctx, true)
+				err = setBreakPoint(ctx, ctx.sourceFile, line)
+			}
+
+			if (!bpoint.isMPIBpoint && !bpoint.ignoreFirstHit) || cmd.Code == command.SingleStep {
+				logger.Verbose("BREAKING")
 				break
 			}
 
@@ -158,6 +166,12 @@ func connect(ctx *processContext) {
 }
 
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
+	ignore := false
+	if line < 0 {
+		logger.Verbose("%v", line)
+		ignore = true
+		line = -line
+	}
 	address, err := ctx.dwarfData.LineToPC(file, line)
 
 	if err != nil {
@@ -174,6 +188,7 @@ func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 		function:                nil,
 		isMPIBpoint:             false,
 		isImmediateAfterRestore: false,
+		ignoreFirstHit:          ignore,
 	}
 
 	return nil
@@ -190,7 +205,9 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 			err := syscall.PtraceCont(ctx.pid, 0)
 			utils.Must(err)
 		}
+
 		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)
+
 		if waitStatus.Exited() {
 			logger.Verbose("The binary exited with code %v", waitStatus.ExitStatus())
 			return true
@@ -327,6 +344,7 @@ func printInternalData(ctx *processContext, varName string) {
 		logger.Info("%d", len(ctx.stack))
 		funct := getLastExecutedFunction(ctx.stack)
 		funct2 := ctx.stack[0].function
+		printRegs(ctx)
 		logger.Info(funct.String())
 		logger.Info(funct2.String())
 	case "types":

@@ -23,13 +23,28 @@ func NewNodeReporter(checkpointRecordChan chan<- rpc.MPICallRecord, quit func())
 func (r *NodeReporter) Register(pid *int, reply *int) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	node := node{
-		id:  len(registeredNodes),
-		pid: *pid,
+	logger.Verbose("REGISTERING")
+	logger.Verbose("SAVE %v", registeredNodesSave)
+
+	id := len(registeredNodes.nodes)
+
+	// Make sure new indexes are correct
+	if len(registeredNodesSave.nodes) > 0 {
+		for index, node := range registeredNodesSave.nodes {
+			if node.pid == *pid {
+				id = index
+				break
+			}
+		}
 	}
 
-	registeredNodes[node.id] = &node
+	node := node{
+		id:         id,
+		pid:        *pid,
+		Breakpoint: -1,
+	}
 
+	registeredNodes.nodes[node.id] = &node
 	// logger.Verbose("added process %d (pid: %d) to process list", node.id, node.pid)
 
 	*reply = node.id
@@ -37,10 +52,13 @@ func (r *NodeReporter) Register(pid *int, reply *int) error {
 }
 
 func Empty() {
-	registeredNodes = make(nodeMap)
+	logger.Verbose("EMPTYINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGg")
+	registeredNodes = NewNodeMapContainer()
 }
 
 func (r *NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
+	// registeredNodes.mu.Lock()
+	// defer registeredNodes.mu.Unlock()
 	nodeId := cmd.NodeId
 
 	if len(cmd.Result.Error) > 0 {
@@ -49,15 +67,18 @@ func (r *NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 			nodeId, cmd.Result.Error,
 		)
 	} else {
-		// logger.Verbose("Node %v successfully executed command %v", nodeId, cmd)
+		if len(registeredNodes.nodes) > 0 && cmd.IsForwardProgressCommand() {
+			SetNodeDone(nodeId)
+		}
+		logger.Verbose("Node %v successfully executed command %v", nodeId, cmd)
 	}
 
 	if cmd.Result.Exited {
 		logger.Info("Node %v exited", nodeId)
 
-		delete(registeredNodes, nodeId)
+		delete(registeredNodes.nodes, nodeId)
 
-		if len(registeredNodes) == 0 {
+		if len(registeredNodes.nodes) == 0 {
 			go func() {
 				logger.Info("All nodes exited. Exiting in 10s")
 				time.Sleep(time.Second * 10)
@@ -66,6 +87,13 @@ func (r *NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 		}
 	}
 
+	return nil
+}
+
+func (r *NodeReporter) Breakpoint(info *command.Command, reply *int) error {
+	logger.Verbose("NODEID %v,", info.NodeId)
+	logger.Verbose("CODE %v,", info.Code)
+	SetNodeBreakpoint(info.NodeId, int(info.Code))
 	return nil
 }
 

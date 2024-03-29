@@ -1,6 +1,10 @@
 package command
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/mihkeltiks/rev-mpi-deb/logger"
+)
 
 type Command struct {
 	NodeId   int
@@ -34,7 +38,9 @@ const (
 	// Node-specific commands - executed on designated node
 	Bpoint
 	SingleStep
+	ReverseSingleStep
 	Cont
+	ReverseCont
 	Restore
 	Print
 	PrintInternal
@@ -42,23 +48,25 @@ const (
 
 func (c Command) String() string {
 	codeStr := map[CommandCode]string{
-		Bpoint:          "breakpoint",
-		CheckpointCRIU:  "checkpointCRIU",
-		SingleStep:      "single-step",
-		Cont:            "continue",
-		Restore:         "restore",
-		RestoreCRIU:     "restoreCRIU",
-		Connect:         "connect",
-		Disconnect:      "disconnect",
-		Reset:           "reset",
-		Stop:            "stop",
-		Attach:          "attach",
-		Detach:          "detach",
-		Kill:            "kill",
-		Print:           "print",
-		Help:            "help",
-		PrintInternal:   "print-internal",
-		ListCheckpoints: "list-checkpoints",
+		Bpoint:            "breakpoint",
+		CheckpointCRIU:    "checkpointCRIU",
+		SingleStep:        "single-step",
+		ReverseSingleStep: "reverse-single-step",
+		Cont:              "continue",
+		ReverseCont:       "reverse-continue",
+		Restore:           "restore",
+		RestoreCRIU:       "restoreCRIU",
+		Connect:           "connect",
+		Disconnect:        "disconnect",
+		Reset:             "reset",
+		Stop:              "stop",
+		Attach:            "attach",
+		Detach:            "detach",
+		Kill:              "kill",
+		Print:             "print",
+		Help:              "help",
+		PrintInternal:     "print-internal",
+		ListCheckpoints:   "list-checkpoints",
 	}[c.Code]
 
 	if c.Argument == nil {
@@ -74,4 +82,8 @@ func (cmd *Command) IsForwardProgressCommand() bool {
 
 func (cmd *Command) IsProgressCommand() bool {
 	return cmd.IsForwardProgressCommand() || cmd.Code == Restore
+}
+
+func (cmd *Command) Print() {
+	logger.Verbose("%v", cmd.NodeId, cmd.Code, cmd.Argument, cmd.Result)
 }

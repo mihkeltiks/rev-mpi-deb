@@ -56,6 +56,7 @@ func insertMPIBreakpoint(ctx *processContext, bpoint *bpointData, isImmediateAft
 		bpoint.function,
 		bpoint.isMPIBpoint,
 		isImmediateAfterRestore,
+		false,
 	}
 }
 
@@ -76,6 +77,7 @@ func initMPIBreakpointsData(ctx *processContext) {
 			originalInstruction,
 			function,
 			true,
+			false,
 			false,
 		}
 	}

@@ -4,7 +4,10 @@ int rank;
 int size;
 int value = 0;
 int a = 1;
-
+int b = 0;
+void randomfunction(){
+    b=1;
+}
 void passMessages(){
     int previousRank = rank == 0 ? size - 1 : rank - 1;
     int nextRank = rank == size - 1 ? 0 : rank + 1;
@@ -29,11 +32,25 @@ void passMessages(){
 
 int main(int argc, char **argv){
     MPI_Init(NULL, NULL);
+    int a = 1;
+    int b = 2;
+    int c = 3;
 
+    if (a==0){
+        printf("asdf");
+    }
+    printf("aaa\n");
+    a = 2;
+    printf("bbb\n");
+    a = 3;
+    printf("aaa\n");
+    randomfunction();
+    randomfunction();
+    randomfunction();
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     passMessages();
-
+    passMessages();
     MPI_Finalize();
 
     return 0;

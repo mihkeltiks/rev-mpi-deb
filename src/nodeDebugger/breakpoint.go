@@ -8,6 +8,7 @@ import (
 	"github.com/mihkeltiks/rev-mpi-deb/logger"
 	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/dwarf"
 	"github.com/mihkeltiks/rev-mpi-deb/utils"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
 type breakpointData map[uint64]*bpointData
@@ -18,6 +19,7 @@ type bpointData struct {
 	function                *dwarf.Function // the pointer to the function the breakpoint was inserted at
 	isMPIBpoint             bool
 	isImmediateAfterRestore bool
+	ignoreFirstHit          bool
 }
 
 func (b *bpointData) String() string {
@@ -69,24 +71,28 @@ func getOriginalInstruction(ctx *processContext, address uint64) (originalInstru
 }
 
 // restores the original instruction if the executable is currently caught at a breakpoint
-func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, registers *syscall.PtraceRegs) {
+func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, registers *syscall.PtraceRegs, line int) {
+	file := ""
 	regs := getRegs(ctx, true)
+	line = 0
 
 	// line, file, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)
-	// logger.Debug("looking to restore bpoint at %#x (line %d in %s, func: %v)", regs.Rip, line, filepath.Base(file), fn.Name())
+	// logger.Verbose("looking to restore bpoint at %#x (line %d in %s, func: %v)", regs.Rip, line, filepath.Base(file), fn.Name())
 
 	bpoint := findBreakpointByAddress(ctx, regs.Rip)
 
 	if bpoint == nil {
 		logger.Debug("Cannot find a breakpoint to restore")
-		return nil, nil
+		return nil, nil, 0
 	}
 
 	if bpoint.isMPIBpoint {
 		logger.Debug("Caught auto-inserted MPI breakpoint, func: %v", bpoint.function.Name())
 	} else {
-		line, file, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
+		line, file, _, _ = ctx.dwarfData.PCToLine(regs.Rip)
+		cmd := command.Command{NodeId: ctx.nodeData.id, Code: command.CommandCode(line)}
 		logger.Info("Caught at a breakpoint: line: %d, file: %v", line, filepath.Base(file))
+		reportBreakpoint(ctx, &cmd)
 	}
 
 	// replace the break instruction with the original instruction
@@ -100,5 +106,5 @@ func restoreCaughtBreakpoint(ctx *processContext) (caugtBpoint *bpointData, regi
 	// remove record of breakpoint
 	delete(ctx.bpointData, bpoint.address)
 
-	return bpoint, regs
+	return bpoint, regs, line
 }

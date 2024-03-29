@@ -16,12 +16,16 @@ func HandleRemotely(cmd *command.Command) error {
 		return GlobalHandleRemotely(cmd)
 	}
 
-	node := registeredNodes[nodeId]
+	node := registeredNodes.nodes[nodeId]
 
 	if node == nil {
 		err := fmt.Errorf("Node %d not found", nodeId)
 		logger.Warn("%v", err)
 		return err
+	}
+	if len(registeredNodes.nodes) > 0 && cmd.IsForwardProgressCommand() {
+		logger.Verbose("Locking node %v,", node.id)
+		SetNodePending(node.id)
 	}
 
 	err := node.client.Call("RemoteCmdHandler.Handle", cmd, new(int))
@@ -37,10 +41,16 @@ func HandleRemotely(cmd *command.Command) error {
 
 func GlobalHandleRemotely(cmd *command.Command) (err error) {
 	logger.Info("Distributing global command")
-	for _, node := range registeredNodes {
+	for _, node := range registeredNodes.nodes {
 		if node.client != nil {
-			logger.Debug("Reseting %v", node.id)
-			err := node.client.Call("RemoteCmdHandler.Handle", cmd, new(int))
+			newCmd := command.Command{NodeId: node.id, Code: cmd.Code, Argument: cmd.Argument, Result: cmd.Result}
+
+			if len(registeredNodes.nodes) > 0 && cmd.IsForwardProgressCommand() {
+				logger.Verbose("Locking node %v,", node.id)
+				SetNodePending(node.id)
+			}
+
+			err := node.client.Call("RemoteCmdHandler.Handle", newCmd, new(int))
 
 			if err != nil {
 				logger.Error("Error dispatching command: %v", err)
@@ -55,7 +65,7 @@ func GlobalHandleRemotely(cmd *command.Command) (err error) {
 }
 
 func Reset() (err error) {
-	for _, node := range registeredNodes {
+	for _, node := range registeredNodes.nodes {
 		if node.client != nil {
 			logger.Debug("Reseting %v", node.id)
 			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Reset})
@@ -71,7 +81,7 @@ func Reset() (err error) {
 }
 
 func Attach() (err error) {
-	for _, node := range registeredNodes {
+	for _, node := range registeredNodes.nodes {
 		if node.client != nil {
 			logger.Debug("Attaching debugger to process on node %v", node.id)
 			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Attach})
@@ -87,7 +97,7 @@ func Attach() (err error) {
 }
 
 func Stop() (err error) {
-	for _, node := range registeredNodes {
+	for _, node := range registeredNodes.nodes {
 		if node.client != nil {
 			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Stop})
 			if err != nil {
@@ -100,7 +110,7 @@ func Stop() (err error) {
 }
 
 func Detach() (err error) {
-	for _, node := range registeredNodes {
+	for _, node := range registeredNodes.nodes {
 		if node.client != nil {
 			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Detach})
 			if err != nil {
@@ -114,7 +124,7 @@ func Detach() (err error) {
 }
 
 func Kill() (err error) {
-	for _, node := range registeredNodes {
+	for _, node := range registeredNodes.nodes {
 		if node.client != nil {
 			err = HandleRemotely(&command.Command{NodeId: node.id, Code: command.Kill})
 			if err != nil {
@@ -166,7 +176,7 @@ func ExecutePendingRollback() (err error) {
 }
 
 func StopAllNodes() {
-	for _, node := range registeredNodes {
+	for _, node := range registeredNodes.nodes {
 		if node.client != nil {
 			logger.Debug("Stopping node %v", node.id)
 			HandleRemotely(&command.Command{NodeId: node.id, Code: command.Quit})

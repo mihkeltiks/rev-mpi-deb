@@ -6,6 +6,7 @@ import (
 
 	"github.com/mihkeltiks/rev-mpi-deb/logger"
 	"github.com/mihkeltiks/rev-mpi-deb/rpc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 	"github.com/mihkeltiks/rev-mpi-deb/utils/mpi"
 )
 
@@ -25,14 +26,60 @@ type checkpointRecord struct {
 	CurrentLocation bool
 }
 
+type CheckpointTree struct {
+	checkpointLog       CheckpointLog
+	parentCheckpoint    *CheckpointTree
+	childrenCheckpoints []*CheckpointTree
+	checkpointDir       string
+	commandLog          CommandLog
+}
+
 // Data structure for maintaining a list of recorded checkpoints by node
 type CheckpointLog map[NodeId][]*checkpointRecord
 
 // Maintaining the state of the checkpointlog at checkpoint
 type CheckpointLogList []CheckpointLog
 
+type CommandLog []command.Command
+
 var checkpointLog = make(CheckpointLog)
 var checkpointLogList CheckpointLogList
+
+func MakeCheckpointTree(cplog CheckpointLog, parentcp *CheckpointTree, childrencps []*CheckpointTree, cpdir string, cmdlog CommandLog) *CheckpointTree {
+	tree := CheckpointTree{
+		checkpointLog:       cplog,
+		parentCheckpoint:    parentcp,
+		childrenCheckpoints: childrencps,
+		checkpointDir:       cpdir,
+		commandLog:          cmdlog,
+	}
+
+	return &tree
+}
+
+func (cpTree *CheckpointTree) AddChildTree(childTree *CheckpointTree) {
+	cpTree.childrenCheckpoints = append(cpTree.childrenCheckpoints, childTree)
+}
+
+func (cpTree CheckpointTree) GetParentCheckpoint() CheckpointTree {
+	return *cpTree.parentCheckpoint
+}
+
+func (cpTree CheckpointTree) GetCheckpointDir() string {
+	return cpTree.checkpointDir
+}
+
+func (cpTree CheckpointTree) GetCommandlog() *CommandLog {
+	return &cpTree.commandLog
+}
+
+func (cpTree CheckpointTree) Print() {
+	logger.Verbose("cplog %v", cpTree.checkpointLog)
+	logger.Verbose("parent %v", cpTree.parentCheckpoint)
+	logger.Verbose("children %v", cpTree.childrenCheckpoints)
+	logger.Verbose("cpdir %v", cpTree.checkpointDir)
+	logger.Verbose("commandlog %v", cpTree.commandLog)
+}
 
 func GetCheckpointLog() CheckpointLog {
 	return checkpointLog

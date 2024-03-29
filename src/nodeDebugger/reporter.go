@@ -8,13 +8,17 @@ import (
 	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
+type info struct {
+	line   int
+	nodeid int
+}
+
 func reportAsHealthy(ctx *processContext) (nodeId int) {
 	err := ctx.nodeData.rpcClient.Call("NodeReporter.Register", os.Getpid(), &nodeId)
 	if err != nil {
 		logger.Error("Failed to report self as healthy: %v", err)
 		panic(err)
 	}
-
 	return nodeId
 }
 
@@ -22,6 +26,15 @@ func reportCommandResult(ctx *processContext, cmd *command.Command) {
 	err := ctx.nodeData.rpcClient.Call("NodeReporter.CommandResult", cmd, new(int))
 	if err != nil {
 		logger.Error("Failed to report command result: %v", err)
+		panic(err)
+	}
+}
+
+func reportBreakpoint(ctx *processContext, cmd *command.Command) {
+	logger.Verbose("%v", cmd.Code)
+	err := ctx.nodeData.rpcClient.Call("NodeReporter.Breakpoint", cmd, new(int))
+	if err != nil {
+		logger.Error("Failed to report breakpoint information: %v", err)
 		panic(err)
 	}
 }
