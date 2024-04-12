@@ -133,7 +133,7 @@ func parseFunction(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *Function {
 		case dwarf.AttrDeclLine:
 			function.line = field.Val.(int64)
 			// adjust for inserted line
-			function.line--
+			function.line -= 10
 		case dwarf.AttrDeclColumn:
 			function.col = field.Val.(int64)
 		case dwarf.AttrFrameBase:
@@ -227,8 +227,8 @@ func parseModule(entry *dwarf.Entry, dwarfRawData *dwarf.Data) *Module {
 			isStmt:        le.IsStmt,
 		}
 
-		// adjust for inserted line
-		entry.line--
+		// adjust for inserted lines
+		entry.line -= 10
 
 		dEntries = append(dEntries, entry)
 

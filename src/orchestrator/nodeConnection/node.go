@@ -18,6 +18,8 @@ type node struct {
 	pendingCommand *command.Command
 	Breakpoint     int
 	pending        bool
+	counter        int
+	breakpoints    []int
 }
 
 func (n node) getConnection() *rpc.RPCClient {
@@ -50,6 +52,14 @@ func SaveRegisteredNodes() {
 	}
 }
 
+func SetBreakpoints(bps []int) {
+	registeredNodes.nodes[bps[0]].breakpoints = bps[1:]
+}
+
+func GetBreakpoints(NodeId int) []int {
+	return registeredNodes.nodes[NodeId].breakpoints
+}
+
 func GetRegisteredIds() []int {
 	nodeIds := make([]int, 0, len(registeredNodes.nodes))
 	for nodeId := range registeredNodes.nodes {
@@ -73,6 +83,38 @@ func SetNodeBreakpoint(id int, line int) {
 	registeredNodes.nodes[id].Breakpoint = line
 }
 
+func SetNodeCounter(id int, counter int) {
+	registeredNodes.mu.Lock()
+	defer registeredNodes.mu.Unlock()
+	// logger.Verbose("%v", registeredNodes.nodes)
+	registeredNodes.nodes[id].counter = counter
+}
+
+func GetNodeCounter(id int) int {
+	return registeredNodes.nodes[id].counter
+}
+
+func GetAllNodeCounters() []int {
+	registeredNodes.mu.Lock()
+	defer registeredNodes.mu.Unlock()
+	counters := make([]int, len(registeredNodes.nodes))
+
+	for index, node := range registeredNodes.nodes {
+		counters[index] = node.counter
+	}
+
+	return counters
+}
+
+func ResetAllNodeCounters() {
+	registeredNodes.mu.Lock()
+	defer registeredNodes.mu.Unlock()
+
+	for index := range registeredNodes.nodes {
+		registeredNodes.nodes[index].counter = -1
+	}
+}
+
 func GetNodePending(id int) bool {
 	registeredNodes.mu.Lock()
 	defer registeredNodes.mu.Unlock()
@@ -85,6 +127,19 @@ func GetNodePending(id int) bool {
 		return false
 	}
 	return registeredNodes.nodes[id].pending
+}
+
+func GetReadyNode() int {
+	registeredNodes.mu.Lock()
+	defer registeredNodes.mu.Unlock()
+
+	for _, node := range registeredNodes.nodes {
+		if !node.pending {
+			return node.id
+		}
+	}
+
+	return -1
 }
 
 func GetNodesPending(ids []int) bool {

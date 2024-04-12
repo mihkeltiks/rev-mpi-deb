@@ -28,10 +28,11 @@ type checkpointRecord struct {
 
 type CheckpointTree struct {
 	checkpointLog       CheckpointLog
-	parentCheckpoint    *CheckpointTree
+	parentTree          *CheckpointTree
 	childrenCheckpoints []*CheckpointTree
 	checkpointDir       string
 	commandLog          CommandLog
+	counters            []int
 }
 
 // Data structure for maintaining a list of recorded checkpoints by node
@@ -45,13 +46,14 @@ type CommandLog []command.Command
 var checkpointLog = make(CheckpointLog)
 var checkpointLogList CheckpointLogList
 
-func MakeCheckpointTree(cplog CheckpointLog, parentcp *CheckpointTree, childrencps []*CheckpointTree, cpdir string, cmdlog CommandLog) *CheckpointTree {
+func MakeCheckpointTree(cplog CheckpointLog, parentcp *CheckpointTree, childrencps []*CheckpointTree, cpdir string, cmdlog CommandLog, counters []int) *CheckpointTree {
 	tree := CheckpointTree{
 		checkpointLog:       cplog,
-		parentCheckpoint:    parentcp,
+		parentTree:          parentcp,
 		childrenCheckpoints: childrencps,
 		checkpointDir:       cpdir,
 		commandLog:          cmdlog,
+		counters:            counters,
 	}
 
 	return &tree
@@ -61,8 +63,20 @@ func (cpTree *CheckpointTree) AddChildTree(childTree *CheckpointTree) {
 	cpTree.childrenCheckpoints = append(cpTree.childrenCheckpoints, childTree)
 }
 
-func (cpTree CheckpointTree) GetParentCheckpoint() CheckpointTree {
-	return *cpTree.parentCheckpoint
+func (cpTree CheckpointTree) GetParentTree() *CheckpointTree {
+	return cpTree.parentTree
+}
+
+func (cpTree CheckpointTree) GetChildrenTrees() []*CheckpointTree {
+	return cpTree.childrenCheckpoints
+}
+
+func (cpTree CheckpointTree) GetCounters() []int {
+	return cpTree.counters
+}
+
+func (cpTree CheckpointTree) HasParent() bool {
+	return cpTree.parentTree != nil
 }
 
 func (cpTree CheckpointTree) GetCheckpointDir() string {
@@ -75,7 +89,7 @@ func (cpTree CheckpointTree) GetCommandlog() *CommandLog {
 
 func (cpTree CheckpointTree) Print() {
 	logger.Verbose("cplog %v", cpTree.checkpointLog)
-	logger.Verbose("parent %v", cpTree.parentCheckpoint)
+	logger.Verbose("parent %v", cpTree.parentTree)
 	logger.Verbose("children %v", cpTree.childrenCheckpoints)
 	logger.Verbose("cpdir %v", cpTree.checkpointDir)
 	logger.Verbose("commandlog %v", cpTree.commandLog)

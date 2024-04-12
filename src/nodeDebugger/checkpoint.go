@@ -216,9 +216,10 @@ func createForkCheckpoint(ctx *processContext, opName string) cPoint {
 	regs := getRegs(ctx, false)
 
 	stackMemRegions := proc.GetStackDataAddresses(ctx.pid)
+	PID, _, _ := getVariableFromMemory(ctx, "_MPI_CHECKPOINT_CHILD", true)
 
 	checkpoint := cPoint{
-		pid:          int(getVariableFromMemory(ctx, "_MPI_CHECKPOINT_CHILD", true).(int32)),
+		pid:          int((PID).(int32)),
 		opName:       opName,
 		regs:         regs,
 		stackRegions: stackMemRegions,

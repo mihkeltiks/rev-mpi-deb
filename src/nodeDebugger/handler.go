@@ -32,7 +32,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	var err error
 	var exited bool
 
-	// logger.Verbose("handling command %v", cmd)
+	logger.Verbose("handling command %v", cmd)
 
 	if cmd.IsForwardProgressCommand() {
 		reportProgressCommand(ctx, cmd)
@@ -43,14 +43,28 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	case command.Bpoint:
 		err = setBreakPoint(ctx, ctx.sourceFile, cmd.Argument.(int))
 	case command.SingleStep:
-		exited = continueExecution(ctx, true)
+		exited = SingleStep(ctx)
+	case command.Next:
+		exited = continueExecution(ctx, false, true, false)
 	case command.Cont:
-		exited = continueExecution(ctx, false)
+		exited = continueExecution(ctx, false, false, false)
 	case command.Restore:
 		checkpointId := cmd.Argument.(string)
 		err = restoreCheckpoint(ctx, checkpointId)
 	case command.Print:
 		printVariable(ctx, cmd.Argument.(string))
+	case command.Insert:
+		changeValueOfTarget(cmd.Argument.(int), ctx)
+	case command.Retrieve:
+		logger.Verbose("RETRIEVING, %v", cmd.Argument)
+		retrieveVariable(cmd.Argument.(string), ctx)
+	case command.RetrieveBreakpoints:
+		logger.Verbose("RETRIEVING BREAKPOINTS")
+		retrieveBreakpoints(ctx)
+	case command.ChangeBreakpoints:
+		AddNewBreakpoints(ctx, cmd.Argument.([]int))
+	case command.RemoveBreakpoints:
+		RemoveBreakpoints(ctx)
 	case command.Quit:
 		quitDebugger()
 	case command.Help:
@@ -58,45 +72,48 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	case command.PrintInternal:
 		printInternalData(ctx, cmd.Argument.(string))
 	case command.Stop:
-		// process_id := os.Getpid()
-		// logger.Info("Reached CRIU stop on pid %v from %v", ctx.pid, process_id)
 		if err := syscall.Kill(ctx.pid, syscall.SIGSTOP); err != nil {
 			fmt.Println("Error sending SIGSTOP to the child process:", err)
 		}
 	case command.Kill:
-		// process_id := os.Getpid()
-		// logger.Info("Reached CRIU kill on pid %v from %v", ctx.pid, process_id)
-
 		if err := syscall.Kill(-ctx.pid, syscall.SIGKILL); err != nil {
 			fmt.Println("Error detaching from the child process:", err)
 		}
 		syscall.Wait4(ctx.pid, nil, 0, nil)
 	case command.Detach:
-		// process_id := os.Getpid()
-		// logger.Info("Reached CRIU detach on pid %v from %v", ctx.pid, process_id)
 		if err := syscall.PtraceDetach(ctx.pid); err != nil {
 			fmt.Println("Error detaching from the child process:", err)
 		}
 	case command.Attach:
-		// process_id := os.Getpid()
-		// logger.Info("Reached attach on pid %v from %v", ctx.pid, process_id)
 		if err := syscall.PtraceAttach(ctx.pid); err != nil {
 			fmt.Println("Error attaching to the child process:", err)
 		}
 	case command.Reset:
-		// logger.Info("Got reset command!")
 		disconnect(ctx)
 		time.Sleep(time.Duration(1200) * time.Millisecond)
 		connect(ctx)
-		// logger.Info("Connected again")
 	}
 
 	if cmd.IsForwardProgressCommand() {
 
 		for {
+			logger.Verbose("STUCK HERE")
 			if exited {
 				break
 			}
+
+			target, _, _ := getVariableFromMemory(ctx, "target", true)
+			counter, _, _ := getVariableFromMemory(ctx, "counter", true)
+
+			if target == counter {
+				// For reverse continue recognize counter hit target
+				if cmd.Code == command.Cont && cmd.Argument != nil {
+					newCmd := command.Command{NodeId: ctx.nodeData.id, Code: command.CommandCode(-5)}
+					reportBreakpoint(ctx, &newCmd)
+				}
+				break
+			}
+
 			bpoint, _, line := restoreCaughtBreakpoint(ctx)
 
 			if bpoint == nil {
@@ -107,26 +124,24 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 				ctx.stack = getStack(ctx)
 
 				// single-step, then insert all missing mpi bpoints
-				continueExecution(ctx, true)
+				continueExecution(ctx, true, false, false)
 				reinsertMPIBPoints(ctx)
 
 				recordMPIOperation(ctx, bpoint)
 			}
 
 			if bpoint.ignoreFirstHit {
-				logger.Verbose("HERE IGNORE")
 				ctx.stack = getStack(ctx)
 				// single-step, then reinsert bp
-				continueExecution(ctx, true)
+				continueExecution(ctx, true, false, false)
 				err = setBreakPoint(ctx, ctx.sourceFile, line)
 			}
 
 			if (!bpoint.isMPIBpoint && !bpoint.ignoreFirstHit) || cmd.Code == command.SingleStep {
-				logger.Verbose("BREAKING")
 				break
 			}
 
-			exited = continueExecution(ctx, false)
+			exited = continueExecution(ctx, false, false, false)
 		}
 	}
 	if !exited && command.Detach != cmd.Code && command.Kill != cmd.Code && command.Stop != cmd.Code && cmd.Code != command.Reset {
@@ -143,6 +158,10 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 
 	if err != nil {
 		cmd.Result.Error = err.Error()
+	}
+
+	if cmd.Code == command.Cont {
+		handleCommand(ctx, &command.Command{NodeId: cmd.NodeId, Code: command.SingleStep})
 	}
 }
 
@@ -189,19 +208,33 @@ func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 		isMPIBpoint:             false,
 		isImmediateAfterRestore: false,
 		ignoreFirstHit:          ignore,
+		line:                    line,
 	}
 
 	return nil
 }
 
-func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
+func SingleStep(ctx *processContext) bool {
+	intialValue := changeTargetForStep(ctx)
+	logger.Verbose("INITIAL %v", intialValue)
+	exited := continueExecution(ctx, false, false, true)
+	changeValueOfTarget(intialValue, ctx)
+	printInternalData(ctx, "loc")
+	stepOutOfCounter(ctx)
+	return exited
+}
+
+func continueExecution(ctx *processContext, singleStep bool, next bool, counter bool) (exited bool) {
 	var waitStatus syscall.WaitStatus
 
-	for i := 0; i < 100; i++ {
-		if singleStep {
+	for i := 0; i < 20; i++ {
+
+		if singleStep || next {
 			err := syscall.PtraceSingleStep(ctx.pid)
 			utils.Must(err)
 		} else {
+			logger.Verbose("STUCK HERE 2 %v", counter)
+
 			err := syscall.PtraceCont(ctx.pid, 0)
 			utils.Must(err)
 		}
@@ -214,19 +247,72 @@ func continueExecution(ctx *processContext, singleStep bool) (exited bool) {
 		}
 
 		if waitStatus.StopSignal() == syscall.SIGTRAP && waitStatus.TrapCause() != syscall.PTRACE_EVENT_CLONE {
-			logger.Debug("binary hit trap, execution paused (wait status: %v, trap cause: %v)", waitStatus, waitStatus.TrapCause())
-			return false
+			logger.Verbose("In here, binary hit trap, execution paused (wait status: %v, trap cause: %v)", waitStatus, waitStatus.TrapCause())
+			if counter {
+				if compareTargetAndCounter(ctx) {
+					return false
+				}
+			} else {
+				return false
+			}
 		}
+
 		// else {
 		// received a signal other than trap/a trap from clone event, continue and wait more
 		// }
 	}
 
+	printVariable(ctx, "counter")
+	return false
+}
+
+func AddNewBreakpoints(ctx *processContext, breakpoints []int) {
+	for _, line := range breakpoints {
+		err := setBreakPoint(ctx, ctx.sourceFile, line)
+		utils.Must(err)
+	}
+}
+
+func RemoveBreakpoints(ctx *processContext) {
+	for address, bpoint := range ctx.bpointData {
+		if !bpoint.isMPIBpoint {
+			_, err := syscall.PtracePokeData(ctx.pid, uintptr(address), bpoint.originalInstruction)
+			utils.Must(err)
+
+			// remove record of breakpoint
+			delete(ctx.bpointData, bpoint.address)
+		}
+	}
+}
+
+func stepOutOfCounter(ctx *processContext) (exited bool) {
+	var waitStatus syscall.WaitStatus
+
+	for i := 0; i < 1000; i++ {
+		err := syscall.PtraceSingleStep(ctx.pid)
+		utils.Must(err)
+
+		syscall.Wait4(ctx.pid, &waitStatus, 0, nil)
+
+		regs := getRegs(ctx, false)
+		line, _, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
+		// Outside of counter bounds
+		if line > 0 {
+			logger.Verbose("LINE %v", line)
+			return false
+		}
+
+		if waitStatus.Exited() {
+			logger.Verbose("The binary exited with code %v", waitStatus.ExitStatus())
+			return true
+		}
+	}
 	panic(fmt.Sprintf("stuck at wait with signal: %v", waitStatus.StopSignal()))
+
 }
 
 func printVariable(ctx *processContext, varName string) {
-	value := getVariableFromMemory(ctx, varName, false)
+	value, _, _ := getVariableFromMemory(ctx, varName, false)
 	if value == nil {
 		return
 	}
@@ -235,7 +321,7 @@ func printVariable(ctx *processContext, varName string) {
 }
 
 // Retrieves the value of a variable matching the specified idendifier, if present in the target
-func getVariableFromMemory(ctx *processContext, identifier string, suppressLogging bool) (value interface{}) {
+func getVariableFromMemory(ctx *processContext, identifier string, suppressLogging bool) (value interface{}, address uint64, size int64) {
 	var variable *dwarf.Variable
 	var variableStackFunction *stackFunction
 
@@ -283,7 +369,7 @@ func getVariableFromMemory(ctx *processContext, identifier string, suppressLoggi
 			logger.Verbose("Cannot locate variable: %s", identifier)
 		}
 
-		return nil
+		return nil, 0, 0
 	}
 
 	var frameBase int64
@@ -297,12 +383,12 @@ func getVariableFromMemory(ctx *processContext, identifier string, suppressLoggi
 
 	if err != nil {
 		logger.Error("Error decoding variable: %v", err)
-		return nil
+		return nil, 0, 0
 	}
 
 	if address == 0 {
 		logger.Warn("Cannot locate this variable")
-		return nil
+		return nil, 0, 0
 	}
 
 	// logger.Debug("location of variable: %d", address)
@@ -311,7 +397,7 @@ func getVariableFromMemory(ctx *processContext, identifier string, suppressLoggi
 	// rawValue := proc.ReadFromMemFile(ctx.pid, address, int(variable.baseType.byteSize))
 	// logger.Debug("raw value of variable: %v", rawValue)
 	// Convert the binary value to accurate type representation
-	return convertValueToType(rawValue, variable)
+	return convertValueToType(rawValue, variable), address, variable.ByteSize()
 }
 
 func peekDataFromMemory(ctx *processContext, address uint64, byteCount int64) []byte {
@@ -338,12 +424,67 @@ func convertValueToType(data []byte, variable *dwarf.Variable) interface{} {
 	return value
 }
 
+func changeValueOfTarget(newValue int, ctx *processContext) {
+	_, address, size := getVariableFromMemory(ctx, "target", true)
+	bs := make([]byte, size)
+	binary.LittleEndian.PutUint32(bs, uint32(newValue))
+	_, err := syscall.PtracePokeData(ctx.pid, uintptr(address), bs)
+	utils.Must(err)
+}
+
+func compareTargetAndCounter(ctx *processContext) bool {
+	counter, _, _ := getVariableFromMemory(ctx, "counter", true)
+	target, _, _ := getVariableFromMemory(ctx, "target", true)
+	logger.Verbose("COUNTER %v", int(counter.(int32)))
+	logger.Verbose("TARGET %v", int(target.(int32)))
+	return counter.(int32) == target.(int32)
+}
+
+func changeTargetForStep(ctx *processContext) int {
+	counter, _, _ := getVariableFromMemory(ctx, "counter", true)
+	target, address, size := getVariableFromMemory(ctx, "target", true)
+
+	newValue := counter.(int32)
+	newValue++
+
+	bs := make([]byte, size)
+	binary.LittleEndian.PutUint32(bs, uint32(newValue))
+
+	_, err := syscall.PtracePokeData(ctx.pid, uintptr(address), bs)
+	utils.Must(err)
+	logger.Verbose("COUNTER IS %v", int(counter.(int32)))
+	logger.Verbose("TARGET SET TO %v", int(newValue))
+
+	return int(target.(int32))
+}
+
+func retrieveVariable(name string, ctx *processContext) {
+	value, _, size := getVariableFromMemory(ctx, name, true)
+	counter := value.(int32)
+	logger.Verbose("REPORTING VALUE %v", counter)
+	logger.Verbose("SIZE  %v", int(size))
+	reportCounter(ctx, &command.Command{NodeId: ctx.nodeData.id, Code: command.Retrieve, Argument: value})
+}
+
+func retrieveBreakpoints(ctx *processContext) {
+	var breakpoints []int
+	breakpoints = append(breakpoints, ctx.nodeData.id)
+
+	for _, value := range ctx.bpointData {
+		if !value.isMPIBpoint {
+			breakpoints = append(breakpoints, value.line)
+		}
+	}
+	reportBreakpoints(ctx, &breakpoints)
+}
+
 func printInternalData(ctx *processContext, varName string) {
 	switch varName {
 	case "last":
 		logger.Info("%d", len(ctx.stack))
 		funct := getLastExecutedFunction(ctx.stack)
 		funct2 := ctx.stack[0].function
+		logger.Verbose("%v", funct2.Name() == "call_counter")
 		printRegs(ctx)
 		logger.Info(funct.String())
 		logger.Info(funct2.String())
@@ -356,6 +497,13 @@ func printInternalData(ctx *processContext, varName string) {
 	case "maps":
 		logger.Info("proc/id/maps:")
 		proc.LogMapsFile(ctx.pid)
+	case "breakpoints":
+		printVariable(ctx, "target")
+		for _, value := range ctx.bpointData {
+			if !value.isMPIBpoint {
+				logger.Verbose("BP %v", value.line)
+			}
+		}
 	case "loc":
 		regs := getRegs(ctx, false)
 		line, fileName, fn, _ := ctx.dwarfData.PCToLine(regs.Rip)

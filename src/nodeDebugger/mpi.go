@@ -6,6 +6,7 @@ import (
 	"github.com/mihkeltiks/rev-mpi-deb/logger"
 	"github.com/mihkeltiks/rev-mpi-deb/nodeDebugger/dwarf"
 	"github.com/mihkeltiks/rev-mpi-deb/rpc"
+	"github.com/mihkeltiks/rev-mpi-deb/utils"
 	"github.com/mihkeltiks/rev-mpi-deb/utils/mpi"
 )
 
@@ -49,6 +50,8 @@ func insertMPIBreakpoint(ctx *processContext, bpoint *bpointData, isImmediateAft
 	logger.Debug("inserting bpoint for MPI function: %v (at %#x)", bpoint.function.Name(), address)
 
 	insertBreakpoint(ctx, address)
+	line, _, _, err := ctx.dwarfData.PCToLine(address)
+	utils.Must(err)
 
 	ctx.bpointData[address] = &bpointData{
 		address,
@@ -57,6 +60,7 @@ func insertMPIBreakpoint(ctx *processContext, bpoint *bpointData, isImmediateAft
 		bpoint.isMPIBpoint,
 		isImmediateAfterRestore,
 		false,
+		line,
 	}
 }
 
@@ -66,11 +70,14 @@ func initMPIBreakpointsData(ctx *processContext) {
 
 	for _, function := range ctx.dwarfData.Mpi.Functions {
 		fName := function.Name()
-
+		logger.Verbose("%v", ctx.dwarfData.GetEntriesForFunction(fName))
+		logger.Verbose("%v", fName)
 		funcEntries := ctx.dwarfData.GetEntriesForFunction(fName)
 		breakAddress := funcEntries[1].Address
 
 		originalInstruction := getOriginalInstruction(ctx, breakAddress)
+		line, _, _, err := ctx.dwarfData.PCToLine(breakAddress)
+		utils.Must(err)
 
 		MPI_BPOINTS[fName] = &bpointData{
 			breakAddress,
@@ -79,6 +86,7 @@ func initMPIBreakpointsData(ctx *processContext) {
 			true,
 			false,
 			false,
+			line,
 		}
 	}
 }
@@ -116,7 +124,7 @@ func recordMPIOperation(ctx *processContext, bpoint *bpointData) {
 	}
 
 	for varName, identifier := range variablesToCapture[opName] {
-		variableValue := getVariableFromMemory(ctx, identifier, true)
+		variableValue, _, _ := getVariableFromMemory(ctx, identifier, true)
 		record.Parameters[varName] = fmt.Sprintf("%v", variableValue)
 	}
 

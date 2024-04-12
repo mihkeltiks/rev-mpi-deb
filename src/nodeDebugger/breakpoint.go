@@ -20,6 +20,7 @@ type bpointData struct {
 	isMPIBpoint             bool
 	isImmediateAfterRestore bool
 	ignoreFirstHit          bool
+	line                    int
 }
 
 func (b *bpointData) String() string {

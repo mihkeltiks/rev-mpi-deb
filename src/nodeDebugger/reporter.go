@@ -8,11 +8,6 @@ import (
 	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
-type info struct {
-	line   int
-	nodeid int
-}
-
 func reportAsHealthy(ctx *processContext) (nodeId int) {
 	err := ctx.nodeData.rpcClient.Call("NodeReporter.Register", os.Getpid(), &nodeId)
 	if err != nil {
@@ -20,6 +15,22 @@ func reportAsHealthy(ctx *processContext) (nodeId int) {
 		panic(err)
 	}
 	return nodeId
+}
+
+func reportCounter(ctx *processContext, cmd *command.Command) {
+	err := ctx.nodeData.rpcClient.Call("NodeReporter.ReportCounter", cmd, new(int))
+	if err != nil {
+		logger.Error("Failed to report self as healthy: %v", err)
+		panic(err)
+	}
+}
+
+func reportBreakpoints(ctx *processContext, breakpoints *[]int) {
+	err := ctx.nodeData.rpcClient.Call("NodeReporter.ReportBreakpoints", breakpoints, new(int))
+	if err != nil {
+		logger.Error("Failed to report self as healthy: %v", err)
+		panic(err)
+	}
 }
 
 func reportCommandResult(ctx *processContext, cmd *command.Command) {

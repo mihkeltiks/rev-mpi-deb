@@ -42,6 +42,7 @@ func (r *NodeReporter) Register(pid *int, reply *int) error {
 		id:         id,
 		pid:        *pid,
 		Breakpoint: -1,
+		counter:    -1,
 	}
 
 	registeredNodes.nodes[node.id] = &node
@@ -91,9 +92,19 @@ func (r *NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 }
 
 func (r *NodeReporter) Breakpoint(info *command.Command, reply *int) error {
-	logger.Verbose("NODEID %v,", info.NodeId)
-	logger.Verbose("CODE %v,", info.Code)
 	SetNodeBreakpoint(info.NodeId, int(info.Code))
+	return nil
+}
+
+func (r *NodeReporter) ReportCounter(info *command.Command, reply *int) error {
+	logger.Verbose("NODE %v", info.NodeId)
+	logger.Verbose("COUNTER %v", int(info.Argument.(int32)))
+	SetNodeCounter(info.NodeId, int(info.Argument.(int32)))
+	return nil
+}
+
+func (r *NodeReporter) ReportBreakpoints(breakpoints *[]int, nodeId *int) error {
+	SetBreakpoints(*breakpoints)
 	return nil
 }
 

@@ -56,7 +56,16 @@ func executeWorkflow() error {
 		logger.Error("Failed to create a wrapped source copy: %v", err)
 		return err
 	}
+	source, _ := os.Open(wrappedSource.Name())
+	defer source.Close()
+	scanner := bufio.NewScanner(source)
+	i := 1
+	for scanner.Scan() {
+		logger.Verbose("%v", i)
+		logger.Verbose("%v", scanner.Text())
 
+		i++
+	}
 	//remove the temporary wrapped source file
 	defer os.Remove(wrappedSource.Name())
 
@@ -99,10 +108,31 @@ func createWrappedCopy(inputFilePath string) (*os.File, error) {
 	defer source.Close()
 	scanner := bufio.NewScanner(source)
 	dest.WriteString(terminate(WRAPPED_MPI_INCLUDE))
+	dest.WriteString(terminate("#include <signal.h>"))
+	dest.WriteString(terminate("int counter = 0;"))
+	dest.WriteString(terminate("int target = 2000000;"))
+	dest.WriteString(terminate("void call_counter(){\ncounter++;\n if (counter==target){\nraise(SIGTRAP);\n}\n};"))
+	infunction := 0
 	for scanner.Scan() {
 		line := scanner.Text()
-
 		line = prefixMPICalls(line)
+		str := strings.TrimSpace(line)
+		for _, char := range line {
+			if char == '{' {
+				infunction++
+			}
+			if char == '}' {
+				infunction--
+			}
+		}
+
+		if str != "" && str[0] != '#' && ((len(str) > 2 && str[0:3] != "int") || infunction > 0) && (len(str) > 3 && str[0:4] != "void" && str[0:4] != "char") {
+			// if str[0] == '_' {
+
+			// } else {
+			line = "call_counter();" + line
+			// }
+		}
 
 		dest.WriteString(terminate(line))
 	}
