@@ -70,8 +70,7 @@ func initMPIBreakpointsData(ctx *processContext) {
 
 	for _, function := range ctx.dwarfData.Mpi.Functions {
 		fName := function.Name()
-		logger.Verbose("%v", ctx.dwarfData.GetEntriesForFunction(fName))
-		logger.Verbose("%v", fName)
+
 		funcEntries := ctx.dwarfData.GetEntriesForFunction(fName)
 		breakAddress := funcEntries[1].Address
 

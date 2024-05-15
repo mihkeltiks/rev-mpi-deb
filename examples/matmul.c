@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MATSIZE 64
+#define MATSIZE 200
 #define NRA MATSIZE            /* number of rows in matrix A */
 #define NCA MATSIZE            /* number of columns in matrix A */
 #define NCB MATSIZE            /* number of columns in matrix B */
@@ -21,6 +21,7 @@
 
 int main (int argc, char *argv[])
 {
+printf("AA");
 int	numtasks,              /* number of tasks in partition */
 	taskid,                /* a task identifier */
 	numworkers,            /* number of worker tasks */
@@ -34,7 +35,6 @@ double	a[NRA][NCA],           /* matrix A to be multiplied */
 	b[NCA][NCB],           /* matrix B to be multiplied */
 	c[NRA][NCB];           /* result matrix C */
 MPI_Status status;
-
 MPI_Init(&argc,&argv);
 MPI_Comm_rank(MPI_COMM_WORLD,&taskid);
 MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
@@ -67,7 +67,7 @@ numworkers = numtasks-1;
       for (dest=1; dest<=numworkers; dest++)
       {
          rows = (dest <= extra) ? averow+1 : averow;   	
-         // printf("Sending %d rows to task %d offset=%d\n",rows,dest,offset);
+         printf("Sending %d rows to task %d offset=%d\n",rows,dest,offset);
          MPI_Send(&offset, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
          MPI_Send(&rows, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
          MPI_Send(&a[offset][0], rows*NCA, MPI_DOUBLE, dest, mtype,

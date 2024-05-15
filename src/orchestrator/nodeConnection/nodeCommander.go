@@ -24,7 +24,6 @@ func HandleRemotely(cmd *command.Command) error {
 		return err
 	}
 	if len(registeredNodes.nodes) > 0 && cmd.IsForwardProgressCommand() {
-		logger.Verbose("Locking node %v,", node.id)
 		SetNodePending(node.id)
 	}
 
@@ -35,7 +34,7 @@ func HandleRemotely(cmd *command.Command) error {
 		return err
 	}
 
-	logger.Debug("Command %v dispatched successfully to node %d", cmd, node.id)
+	// logger.Debug("Command %v dispatched successfully to node %d", cmd, node.id)
 	return nil
 }
 
@@ -43,22 +42,19 @@ func GlobalHandleRemotely(cmd *command.Command) (err error) {
 	logger.Info("Distributing global command")
 	for _, node := range registeredNodes.nodes {
 		if node.client != nil {
-			logger.Verbose("Sending to %v,", node.id)
 
 			newCmd := command.Command{NodeId: node.id, Code: cmd.Code, Argument: cmd.Argument, Result: cmd.Result}
 
 			if len(registeredNodes.nodes) > 0 && cmd.IsForwardProgressCommand() {
-				logger.Verbose("Locking node %v,", node.id)
 				SetNodePending(node.id)
 			}
 
 			err := node.client.Call("RemoteCmdHandler.Handle", newCmd, new(int))
-			logger.Verbose("Sent to%v,", node.id)
 			if err != nil {
 				logger.Error("Error dispatching command: %v", err)
 				return err
 			}
-			logger.Verbose("Command %v dispatched successfully to node %d", cmd, node.id)
+			// logger.Verbose("Command %v dispatched successfully to node %d", cmd, node.id)
 
 		}
 	}

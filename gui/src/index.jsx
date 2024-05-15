@@ -39,7 +39,7 @@ const App = () => {
 					<button onClick={onRollbackCancel}>Cancel</button>
 				</>
 			) : (
-				!!Object.values(checkpointLog).length && (
+				!!Object.values(checkpointLog).length && selectedIndex == 0 && (
 					<span>Click a green node to roll back to this checkpoint</span>
 				)
 			)}

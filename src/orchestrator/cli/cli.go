@@ -49,13 +49,16 @@ func PrintInstructions() {
 
 	fmt.Print("\nAvailable commands:\n\n")
 
-	fmt.Println("  <nid> b <lineNr> \tset breakpoint")
-	fmt.Println("  <nid> s \t\tsingle-step forward")
-	fmt.Println("  <nid> c \t\tcontinue execution")
-	fmt.Println("  <nid> p <var>  \tprint a variable")
+	fmt.Println("  <nid/all> b <lineNr> \tset breakpoint")
+	fmt.Println("  <nid/all> s \t\tsingle-step forward")
+	fmt.Println("  <nid/all> rs \t\tsingle-step backward")
+	fmt.Println("  <nid/all> c \t\tcontinue execution")
+	fmt.Println("  <nid/all> rc \t\tcontinue execution backward")
+	fmt.Println("  <nid/all> p <var>  \tprint a variable")
 	fmt.Println("        cp  \t\tlist recorded checkpoints")
 	fmt.Println("        r <checkpoint id>  \trollback to checkpoint")
-
+	fmt.Println("        cpCRIU  \tissue a CRIU checkpoint")
+	fmt.Println("        restoreCRIU <var>  \tissue a CRIU restore")
 	fmt.Println("        q  \t\tquit")
 	fmt.Println("     help  \t\tshow this again")
 	fmt.Println()

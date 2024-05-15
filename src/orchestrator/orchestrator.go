@@ -100,7 +100,11 @@ func main() {
 	}()
 
 	// wait for nodes to finish startup sequence
-	connectBackToNodes(numProcesses, false)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go connectBackToNodes(numProcesses, false, &wg)
+	wg.Wait()
+	// logger.Verbose("HERE")
 	nodeconnection.SaveRegisteredNodes()
 
 	pid = mpiProcess.Process.Pid
@@ -137,9 +141,12 @@ func main() {
 		case command.GlobalRollback:
 			handleRollbackSubmission(cmd)
 		case command.CheckpointCRIU:
+			// start := time.Now()
 			checkpointDir := checkpointCRIU(numProcesses, c, pid, true)
+
 			checkpoints = append(checkpoints, checkpointDir)
 			checkpointmanager.AddCheckpointLog()
+
 			websocket.HandleCriuCheckpoint()
 
 			currentCheckpointTree = checkpointmanager.MakeCheckpointTree(
@@ -151,22 +158,31 @@ func main() {
 				nodeconnection.GetAllNodeCounters())
 
 			currentCheckpointTree.GetParentTree().AddChildTree(currentCheckpointTree)
-			logger.Verbose("PARENT")
-			currentCheckpointTree.GetParentTree().Print()
-			logger.Verbose("CURRENT")
-			currentCheckpointTree.Print()
-			logger.Verbose("HAS %v", currentCheckpointTree.HasParent())
+
 			currentCommandlog = []command.Command{}
+			// duration := time.Since(start)
+			// logger.Verbose("CHECKPOINT TIME %v", duration)
+			logger.Verbose("Checkpoint complete")
 		case command.RestoreCRIU:
+			// start := time.Now()
 			index := cmd.Argument.(int)
+
 			restoreCriu(checkpoints[index], pid, numProcesses)
+
 			websocket.HandleCriuRestore(index)
 			checkpointmanager.SetCheckpointLog(index)
-			connectBackToNodes(numProcesses, true)
-			logger.Verbose("Find tree")
+
 			currentCheckpointTree = findTreeByDir(&rootCheckpointTree, checkpoints[index])
-			currentCheckpointTree.Print()
 			currentCommandlog = []command.Command{}
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+			connectBackToNodes(numProcesses, true, &wg)
+			wg.Wait()
+
+			// duration := time.Since(start)
+			// logger.Verbose("RESTORE TIME %v", duration)
+			logger.Verbose("Restore complete")
 		case command.ReverseSingleStep:
 			calculateReverseStepCommands(cmd)
 		case command.ReverseCont:
@@ -214,7 +230,8 @@ func calculateReverseStepCommands(cmd *command.Command) {
 	logger.Verbose("INITIAL %v", counters)
 	tree, _ := findTreeCandidateCounter(cmd, *currentCheckpointTree)
 	restoreCriu(tree.GetCheckpointDir(), pid, numProcesses)
-	connectBackToNodes(numProcesses, true)
+	var gg sync.WaitGroup
+	connectBackToNodes(numProcesses, true, &gg)
 
 	if cmd.NodeId == -1 {
 		for index := range counters {
@@ -288,7 +305,8 @@ func calculateReverseContinueCommands(cmd *command.Command) {
 
 func reverseContLoop(cmd *command.Command, checkpointDir string, counters []int, bpmap map[int][]int, firstRunhitMap map[int][]int, secondRun bool) map[int][]int {
 	restoreCriu(checkpointDir, pid, numProcesses)
-	connectBackToNodes(numProcesses, true)
+	var wg sync.WaitGroup
+	connectBackToNodes(numProcesses, true, &wg)
 
 	// Set new breakpoints
 	for i := 0; i < numProcesses; i++ {
@@ -405,13 +423,16 @@ func findTreeCandidateCounter(cmd *command.Command, tree checkpointmanager.Check
 	return tree, nil
 }
 
-func connectBackToNodes(numProcesses int, attach bool) {
+func connectBackToNodes(numProcesses int, attach bool, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for nodeconnection.GetRegisteredNodesLen() < numProcesses {
 	}
 	nodeconnection.ConnectToAllNodes(numProcesses)
 	if attach {
 		nodeconnection.Attach()
 	}
+	// logger.Verbose("DONE WITH CONNECT")
 }
 
 func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
@@ -463,8 +484,11 @@ func checkpointCRIU(numProcesses int, c *criu.Criu, pid int, leave_running bool)
 	Dump(c, strconv.Itoa(pid), false, checkpointDir, "", leave_running)
 
 	time.Sleep(1 * time.Second)
-
-	connectBackToNodes(numProcesses, true)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go connectBackToNodes(numProcesses, true, &wg)
+	wg.Wait()
+	// logger.Verbose("UPPER CP FINISH")
 	return checkpointDir
 }
 
@@ -489,6 +513,7 @@ func Dump(c *criu.Criu, pidS string, pre bool, imgDir string, prevImg string, le
 		ExtUnixSk:      proto.Bool(true),
 		TcpEstablished: proto.Bool(true),
 		Unprivileged:   proto.Bool(true),
+		GhostLimit:     proto.Uint32(1048576 * 64),
 	}
 
 	if prevImg != "" {
@@ -506,7 +531,10 @@ func Dump(c *criu.Criu, pidS string, pre bool, imgDir string, prevImg string, le
 	if err != nil {
 		logger.Error("CRIU error during checkpoint: %v", err)
 	}
+
 	img.Close()
+	// logger.Verbose("LOWER CP FINISH")
+
 }
 
 type TestNfy struct {

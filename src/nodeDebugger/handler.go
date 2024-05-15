@@ -32,7 +32,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	var err error
 	var exited bool
 
-	logger.Verbose("handling command %v", cmd)
+	// logger.Verbose("handling command %v", cmd)
 
 	if cmd.IsForwardProgressCommand() {
 		reportProgressCommand(ctx, cmd)
@@ -97,7 +97,7 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	if cmd.IsForwardProgressCommand() {
 
 		for {
-			logger.Verbose("STUCK HERE")
+			// logger.Verbose("STUCK HERE")
 			if exited {
 				break
 			}
@@ -160,9 +160,9 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 		cmd.Result.Error = err.Error()
 	}
 
-	if cmd.Code == command.Cont {
-		handleCommand(ctx, &command.Command{NodeId: cmd.NodeId, Code: command.SingleStep})
-	}
+	// if cmd.Code == command.Cont {
+	// 	handleCommand(ctx, &command.Command{NodeId: cmd.NodeId, Code: command.SingleStep})
+	// }
 }
 
 func disconnect(ctx *processContext) {
@@ -233,7 +233,7 @@ func continueExecution(ctx *processContext, singleStep bool, next bool, counter 
 			err := syscall.PtraceSingleStep(ctx.pid)
 			utils.Must(err)
 		} else {
-			logger.Verbose("STUCK HERE 2 %v", counter)
+			// logger.Verbose("STUCK HERE 2 %v", counter)
 
 			err := syscall.PtraceCont(ctx.pid, 0)
 			utils.Must(err)
@@ -247,7 +247,7 @@ func continueExecution(ctx *processContext, singleStep bool, next bool, counter 
 		}
 
 		if waitStatus.StopSignal() == syscall.SIGTRAP && waitStatus.TrapCause() != syscall.PTRACE_EVENT_CLONE {
-			logger.Verbose("In here, binary hit trap, execution paused (wait status: %v, trap cause: %v)", waitStatus, waitStatus.TrapCause())
+			// logger.Verbose("In here, binary hit trap, execution paused (wait status: %v, trap cause: %v)", waitStatus, waitStatus.TrapCause())
 			if counter {
 				if compareTargetAndCounter(ctx) {
 					return false

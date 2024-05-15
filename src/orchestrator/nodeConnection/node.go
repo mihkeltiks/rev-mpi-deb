@@ -211,7 +211,7 @@ func ConnectToAllNodes(desiredNodeCount int) {
 	}
 
 	if desiredNodeCount == len(registeredNodes.nodes) {
-		logger.Info("Connected to all nodes")
+		logger.Verbose("Connected to all nodes")
 	} else {
 		panic(fmt.Sprintf("%d nodes connected, want %d", len(registeredNodes.nodes), desiredNodeCount))
 	}

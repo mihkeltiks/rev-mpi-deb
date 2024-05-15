@@ -23,8 +23,6 @@ func NewNodeReporter(checkpointRecordChan chan<- rpc.MPICallRecord, quit func())
 func (r *NodeReporter) Register(pid *int, reply *int) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	logger.Verbose("REGISTERING")
-	logger.Verbose("SAVE %v", registeredNodesSave)
 
 	id := len(registeredNodes.nodes)
 
@@ -53,7 +51,7 @@ func (r *NodeReporter) Register(pid *int, reply *int) error {
 }
 
 func Empty() {
-	logger.Verbose("EMPTYINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGg")
+	// logger.Verbose("EMPTYINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGg")
 	registeredNodes = NewNodeMapContainer()
 }
 
@@ -71,7 +69,7 @@ func (r *NodeReporter) CommandResult(cmd *command.Command, reply *int) error {
 		if len(registeredNodes.nodes) > 0 && cmd.IsForwardProgressCommand() {
 			SetNodeDone(nodeId)
 		}
-		logger.Verbose("Node %v successfully executed command %v", nodeId, cmd)
+		// logger.Verbose("Node %v successfully executed command %v", nodeId, cmd)
 	}
 
 	if cmd.Result.Exited {
