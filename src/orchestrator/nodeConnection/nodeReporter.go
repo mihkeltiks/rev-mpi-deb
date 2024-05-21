@@ -95,8 +95,8 @@ func (r *NodeReporter) Breakpoint(info *command.Command, reply *int) error {
 }
 
 func (r *NodeReporter) ReportCounter(info *command.Command, reply *int) error {
-	logger.Verbose("NODE %v", info.NodeId)
-	logger.Verbose("COUNTER %v", int(info.Argument.(int32)))
+	// logger.Verbose("NODE %v", info.NodeId)
+	// logger.Verbose("COUNTER %v", int(info.Argument.(int32)))
 	SetNodeCounter(info.NodeId, int(info.Argument.(int32)))
 	return nil
 }

@@ -55,7 +55,7 @@ func (cp cPoint) String() string {
 
 func createCheckpoint(ctx *processContext, opName string) string {
 
-	logger.Verbose("creating new checkpoint (%v)", opName)
+	// logger.Verbose("creating new checkpoint (%v)", opName)
 
 	var checkpoint cPoint
 

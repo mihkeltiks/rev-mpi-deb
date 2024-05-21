@@ -56,17 +56,17 @@ func executeWorkflow() error {
 		logger.Error("Failed to create a wrapped source copy: %v", err)
 		return err
 	}
-	source, _ := os.Open(wrappedSource.Name())
-	defer source.Close()
-	scanner := bufio.NewScanner(source)
-	i := 1
-	for scanner.Scan() {
-		logger.Verbose("%v", i)
-		logger.Verbose("%v", scanner.Text())
+	// source, _ := os.Open(wrappedSource.Name())
+	// defer source.Close()
+	// scanner := bufio.NewScanner(source)
+	// i := 1
+	// for scanner.Scan() {
+	// 	logger.Verbose("%v", i)
+	// 	logger.Verbose("%v", scanner.Text())
 
-		i++
-	}
-	//remove the temporary wrapped source file
+	// 	i++
+	// }
+	// //remove the temporary wrapped source file
 	defer os.Remove(wrappedSource.Name())
 
 	err = compile(wrappedSource.Name(), getDestPath(inputFilePath))

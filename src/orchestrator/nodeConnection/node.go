@@ -72,7 +72,6 @@ func GetRegisteredIds() []int {
 func GetNodeBreakpoint(id int) int {
 	registeredNodes.mu.Lock()
 	defer registeredNodes.mu.Unlock()
-	fmt.Println(registeredNodes.nodes[id].Breakpoint)
 	return registeredNodes.nodes[id].Breakpoint
 }
 
@@ -211,7 +210,7 @@ func ConnectToAllNodes(desiredNodeCount int) {
 	}
 
 	if desiredNodeCount == len(registeredNodes.nodes) {
-		logger.Verbose("Connected to all nodes")
+		// logger.Verbose("Connected to all nodes")
 	} else {
 		panic(fmt.Sprintf("%d nodes connected, want %d", len(registeredNodes.nodes), desiredNodeCount))
 	}

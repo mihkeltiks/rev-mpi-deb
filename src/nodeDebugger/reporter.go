@@ -42,7 +42,6 @@ func reportCommandResult(ctx *processContext, cmd *command.Command) {
 }
 
 func reportBreakpoint(ctx *processContext, cmd *command.Command) {
-	logger.Verbose("%v", cmd.Code)
 	err := ctx.nodeData.rpcClient.Call("NodeReporter.Breakpoint", cmd, new(int))
 	if err != nil {
 		logger.Error("Failed to report breakpoint information: %v", err)

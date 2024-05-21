@@ -39,7 +39,7 @@ func HandleRemotely(cmd *command.Command) error {
 }
 
 func GlobalHandleRemotely(cmd *command.Command) (err error) {
-	logger.Info("Distributing global command")
+	// logger.Info("Distributing global command")
 	for _, node := range registeredNodes.nodes {
 		if node.client != nil {
 

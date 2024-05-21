@@ -56,10 +56,10 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 	case command.Insert:
 		changeValueOfTarget(cmd.Argument.(int), ctx)
 	case command.Retrieve:
-		logger.Verbose("RETRIEVING, %v", cmd.Argument)
+		// logger.Verbose("RETRIEVING, %v", cmd.Argument)
 		retrieveVariable(cmd.Argument.(string), ctx)
 	case command.RetrieveBreakpoints:
-		logger.Verbose("RETRIEVING BREAKPOINTS")
+		// logger.Verbose("RETRIEVING BREAKPOINTS")
 		retrieveBreakpoints(ctx)
 	case command.ChangeBreakpoints:
 		AddNewBreakpoints(ctx, cmd.Argument.([]int))
@@ -144,6 +144,11 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 			exited = continueExecution(ctx, false, false, false)
 		}
 	}
+
+	if cmd.Code == command.Cont && !exited {
+		stepOutOfCounter(ctx)
+	}
+
 	if !exited && command.Detach != cmd.Code && command.Kill != cmd.Code && command.Stop != cmd.Code && cmd.Code != command.Reset {
 		ctx.stack = getStack(ctx)
 
@@ -160,9 +165,6 @@ func handleCommand(ctx *processContext, cmd *command.Command) {
 		cmd.Result.Error = err.Error()
 	}
 
-	// if cmd.Code == command.Cont {
-	// 	handleCommand(ctx, &command.Command{NodeId: cmd.NodeId, Code: command.SingleStep})
-	// }
 }
 
 func disconnect(ctx *processContext) {
@@ -187,7 +189,7 @@ func connect(ctx *processContext) {
 func setBreakPoint(ctx *processContext, file string, line int) (err error) {
 	ignore := false
 	if line < 0 {
-		logger.Verbose("%v", line)
+		// logger.Verbose("%v", line)
 		ignore = true
 		line = -line
 	}
@@ -298,7 +300,7 @@ func stepOutOfCounter(ctx *processContext) (exited bool) {
 		line, _, _, _ := ctx.dwarfData.PCToLine(regs.Rip)
 		// Outside of counter bounds
 		if line > 0 {
-			logger.Verbose("LINE %v", line)
+			// logger.Verbose("LINE %v", line)
 			return false
 		}
 
@@ -459,10 +461,10 @@ func changeTargetForStep(ctx *processContext) int {
 }
 
 func retrieveVariable(name string, ctx *processContext) {
-	value, _, size := getVariableFromMemory(ctx, name, true)
-	counter := value.(int32)
-	logger.Verbose("REPORTING VALUE %v", counter)
-	logger.Verbose("SIZE  %v", int(size))
+	value, _, _ := getVariableFromMemory(ctx, name, true)
+	// counter := value.(int32)
+	// logger.Verbose("REPORTING VALUE %v", counter)
+	// logger.Verbose("SIZE  %v", int(size))
 	reportCounter(ctx, &command.Command{NodeId: ctx.nodeData.id, Code: command.Retrieve, Argument: value})
 }
 
