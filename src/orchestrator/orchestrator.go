@@ -141,7 +141,6 @@ func main() {
 		case command.GlobalRollback:
 			handleRollbackSubmission(cmd)
 		case command.CheckpointCRIU:
-			start := time.Now()
 			checkpointDir := checkpointCRIU(numProcesses, c, pid, true)
 
 			checkpoints = append(checkpoints, checkpointDir)
@@ -160,11 +159,8 @@ func main() {
 			currentCheckpointTree.GetParentTree().AddChildTree(currentCheckpointTree)
 
 			currentCommandlog = []command.Command{}
-			duration := time.Since(start)
-			logger.Verbose("CHECKPOINT TIME %v", duration)
-			logger.Verbose("Checkpoint complete")
+
 		case command.RestoreCRIU:
-			start := time.Now()
 			index := cmd.Argument.(int)
 
 			restoreCriu(checkpoints[index], pid, numProcesses)
@@ -180,9 +176,6 @@ func main() {
 			connectBackToNodes(numProcesses, true, &wg)
 			wg.Wait()
 
-			duration := time.Since(start)
-			logger.Verbose("RESTORE TIME %v", duration)
-			logger.Verbose("Restore complete")
 		case command.ReverseSingleStep:
 			calculateReverseStepCommands(cmd)
 		case command.ReverseCont:
@@ -228,8 +221,8 @@ func calculateReverseStepCommands(cmd *command.Command) {
 		counters = nodeconnection.GetAllNodeCounters()
 	}
 
-	tree, _ := findTreeCandidateCounter(cmd, *currentCheckpointTree)
-	restoreCriu(tree.GetCheckpointDir(), pid, numProcesses)
+	// tree, _ := findTreeCandidateCounter(cmd, *currentCheckpointTree)
+	restoreCriu(rootCheckpointTree.GetCheckpointDir(), pid, numProcesses)
 	websocket.HandleCriuRestore(0)
 	checkpointmanager.SetCheckpointLog(0)
 
@@ -291,9 +284,9 @@ func calculateReverseContinueCommands(cmd *command.Command) {
 		bpmap[i] = nodeconnection.GetBreakpoints(i)
 	}
 
-	tree, _ := findTreeCandidateCounter(cmd, *currentCheckpointTree)
-	breakpointHitMap := reverseContLoop(cmd, tree.GetCheckpointDir(), counters, bpmap, nil, false)
-	reverseContLoop(cmd, tree.GetCheckpointDir(), counters, bpmap, breakpointHitMap, true)
+	// tree, _ := findTreeCandidateCounter(cmd, *currentCheckpointTree)
+	breakpointHitMap := reverseContLoop(cmd, rootCheckpointTree.GetCheckpointDir(), counters, bpmap, nil, false)
+	reverseContLoop(cmd, rootCheckpointTree.GetCheckpointDir(), counters, bpmap, breakpointHitMap, true)
 
 	// Remove the breakpoint that was hit
 	for i := 0; i < numProcesses; i++ {
@@ -309,9 +302,9 @@ func calculateReverseContinueCommands(cmd *command.Command) {
 }
 
 func reverseContLoop(cmd *command.Command, checkpointDir string, counters []int, bpmap map[int][]int, firstRunhitMap map[int][]int, secondRun bool) map[int][]int {
-	restoreCriu(checkpointDir, pid, numProcesses)
-	websocket.HandleCriuRestore(0)
 	checkpointmanager.SetCheckpointLog(0)
+	websocket.HandleCriuRestore(0)
+	restoreCriu(checkpointDir, pid, numProcesses)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	connectBackToNodes(numProcesses, true, &wg)

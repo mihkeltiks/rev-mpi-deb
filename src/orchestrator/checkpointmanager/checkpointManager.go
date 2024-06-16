@@ -117,7 +117,8 @@ func AddCheckpointLog() {
 }
 
 func SetCheckpointLog(index int) {
-	checkpointLog = checkpointLogList[index]
+	checkpointLog = make(CheckpointLog)
+	// checkpointLog = checkpointLogList[index]
 }
 
 var nodeRanks = make(map[NodeId]*int)
