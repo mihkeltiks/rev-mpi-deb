@@ -56,17 +56,17 @@ func executeWorkflow() error {
 		logger.Error("Failed to create a wrapped source copy: %v", err)
 		return err
 	}
-	// source, _ := os.Open(wrappedSource.Name())
-	// defer source.Close()
-	// scanner := bufio.NewScanner(source)
-	// i := 1
-	// for scanner.Scan() {
-	// 	logger.Verbose("%v", i)
-	// 	logger.Verbose("%v", scanner.Text())
+	source, _ := os.Open(wrappedSource.Name())
+	defer source.Close()
+	scanner := bufio.NewScanner(source)
+	i := 1
+	for scanner.Scan() {
+		logger.Verbose("%v", i)
+		logger.Verbose("%v", scanner.Text())
 
-	// 	i++
-	// }
-	// //remove the temporary wrapped source file
+		i++
+	}
+	//remove the temporary wrapped source file
 	defer os.Remove(wrappedSource.Name())
 
 	err = compile(wrappedSource.Name(), getDestPath(inputFilePath))
@@ -113,10 +113,17 @@ func createWrappedCopy(inputFilePath string) (*os.File, error) {
 	dest.WriteString(terminate("int target = 2000000;"))
 	dest.WriteString(terminate("void call_counter(){\ncounter++;\n if (counter==target){\nraise(SIGTRAP);\n}\n};"))
 	infunction := 0
+	inSingleLineComment := false
+	inMultiLineComment := false
 	for scanner.Scan() {
 		line := scanner.Text()
+		line, _, inMultiLineComment = removeCommentsFromLine(line, inSingleLineComment, inMultiLineComment)
+		if inMultiLineComment {
+			dest.WriteString(terminate(line))
+			continue
+		}
+
 		line = prefixMPICalls(line)
-		str := strings.TrimSpace(line)
 		for _, char := range line {
 			if char == '{' {
 				infunction++
@@ -126,13 +133,11 @@ func createWrappedCopy(inputFilePath string) (*os.File, error) {
 			}
 		}
 
-		if str != "" && str[0] != '#' && ((len(str) > 2 && str[0:3] != "int") || infunction > 0) && (len(str) > 3 && str[0:4] != "void" && str[0:4] != "char") {
-			// if str[0] == '_' {
-
-			// } else {
+		str := strings.TrimSpace(line)
+		if infunction > 0 && str != "" && str[0] != '#' && (len(str) > 2 && str[0:3] != "int") && (len(str) > 3 && str[0:4] != "void" && str[0:4] != "char") {
 			line = "call_counter();" + line
-			// }
 		}
+		// logger.Verbose("LINE %v", line)
 
 		dest.WriteString(terminate(line))
 	}
@@ -198,4 +203,35 @@ func determineCheckpointingMode() {
 
 func terminate(line string) string {
 	return fmt.Sprintf("%s\n", line)
+}
+
+func removeCommentsFromLine(line string, inSingleLineComment bool, inMultiLineComment bool) (string, bool, bool) {
+	var result strings.Builder
+	// logger.Verbose("LINE %v", line)
+	// logger.Verbose("MULTICOMM %v", inMultiLineComment)
+
+	lineLen := len(line)
+
+	for i := 0; i < lineLen; i++ {
+		if inSingleLineComment {
+			break // Ignore the rest of the line
+		} else if inMultiLineComment {
+			if line[i] == '*' && i+1 < lineLen && line[i+1] == '/' {
+				inMultiLineComment = false
+				i++ // Skip the closing '/'
+			}
+		} else {
+			if line[i] == '/' && i+1 < lineLen && line[i+1] == '/' {
+				inSingleLineComment = true
+				break // Ignore the rest of the line
+			} else if line[i] == '/' && i+1 < lineLen && line[i+1] == '*' {
+				inMultiLineComment = true
+				i++ // Skip the '*'
+			} else {
+				result.WriteByte(line[i])
+			}
+		}
+	}
+
+	return result.String(), inSingleLineComment, inMultiLineComment
 }

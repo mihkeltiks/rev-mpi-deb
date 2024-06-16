@@ -30,20 +30,14 @@ void passMessages()
 
     int otherProcessRank;
 
-    if (rank == 0)
-    {
+    if (rank == 0){
         otherProcessRank = 1;
         sendValue = 123;
-    }
-    else if (rank == 1)
-    {
+    }else if (rank == 1){
         otherProcessRank = 0;
         sendValue = 456;
-    }
-    else
-    {
-        return;
-    }
+    }else{
+        return;}
 
     MPI_Send(&sendValue, 1, MPI_INT, otherProcessRank, 0, MPI_COMM_WORLD);
     printf("Node %d: sending value %d to %d\n", rank, sendValue, otherProcessRank);

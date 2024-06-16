@@ -1,2 +1,0 @@
-CP time, size, restore time
-MATMUL 250

@@ -22,18 +22,19 @@
 int main (int argc, char *argv[])
 {
 printf("AA");
-int	numtasks,              /* number of tasks in partition */
-	taskid,                /* a task identifier */
-	numworkers,            /* number of worker tasks */
-	source,                /* task id of message source */
-	dest,                  /* task id of message destination */
-	mtype,                 /* message type */
-	rows,                  /* rows of matrix A sent to each worker */
-	averow, extra, offset, /* used to determine rows sent to each worker */
-	i, j, k, rc;           /* misc */
-double	a[NRA][NCA],           /* matrix A to be multiplied */
-	b[NCA][NCB],           /* matrix B to be multiplied */
-	c[NRA][NCB];           /* result matrix C */
+int	numtasks;              /* number of tasks in partition */
+int	taskid;                /* a task identifier */
+int	numworkers;            /* number of worker tasks */
+int	source;                /* task id of message source */
+int	dest;                  /* task id of message destination */
+int	mtype;                 /* message type */
+int	rows;                  /* rows of matrix A sent to each worker */
+int	averow, extra, offset; /* used to determine rows sent to each worker */
+int	i, j, k, rc;           /* misc */
+
+double	a[NRA][NCA];           /* matrix A to be multiplied */
+double	b[NCA][NCB];           /* matrix B to be multiplied */
+double	c[NRA][NCB];           /* result matrix C */
 MPI_Status status;
 MPI_Init(&argc,&argv);
 MPI_Comm_rank(MPI_COMM_WORLD,&taskid);
@@ -70,8 +71,7 @@ numworkers = numtasks-1;
          printf("Sending %d rows to task %d offset=%d\n",rows,dest,offset);
          MPI_Send(&offset, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
          MPI_Send(&rows, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
-         MPI_Send(&a[offset][0], rows*NCA, MPI_DOUBLE, dest, mtype,
-                   MPI_COMM_WORLD);
+         MPI_Send(&a[offset][0], rows*NCA, MPI_DOUBLE, dest, mtype, MPI_COMM_WORLD);
          MPI_Send(&b, NCA*NCB, MPI_DOUBLE, dest, mtype, MPI_COMM_WORLD);
          offset = offset + rows;
       }
@@ -83,8 +83,7 @@ numworkers = numtasks-1;
          source = i;
          MPI_Recv(&offset, 1, MPI_INT, source, mtype, MPI_COMM_WORLD, &status);
          MPI_Recv(&rows, 1, MPI_INT, source, mtype, MPI_COMM_WORLD, &status);
-         MPI_Recv(&c[offset][0], rows*NCB, MPI_DOUBLE, source, mtype, 
-                  MPI_COMM_WORLD, &status);
+         MPI_Recv(&c[offset][0], rows*NCB, MPI_DOUBLE, source, mtype, MPI_COMM_WORLD, &status);
          // printf("Received results from task %d\n",source);
       }
 
@@ -95,8 +94,9 @@ numworkers = numtasks-1;
       for (i=0; i<10; i++)
       {
          printf("\n"); 
-         for (j=0; j<5; j++) 
+         for (j=0; j<5; j++){ 
             printf("%6.2f   ", c[i][j]);
+         }
          printf("\n");
       }
       printf("... %d more rows", NRA - 10);
