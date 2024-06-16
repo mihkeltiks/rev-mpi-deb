@@ -81,7 +81,7 @@ func HandleCriuRestore(index int) {
 	// logger.Verbose("Handling criu rollback")
 	SendMessage(RollbackResultMessage{
 		Type:  CriuRestore,
-		Value: checkpointmanager.GetCheckpointLogIndex(index),
+		Value: checkpointmanager.GetCheckpointLogIndex(0),
 	})
 }
 

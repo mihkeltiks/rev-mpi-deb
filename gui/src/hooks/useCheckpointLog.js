@@ -12,14 +12,15 @@ export default function useCheckpointLog() {
 			case MESSAGE_TYPES.CHECKPOINT_UPDATE:
 			case MESSAGE_TYPES.ROLLBACK_RESULT:
 				setSelectedIndex(0);
-				setCheckpointLog(currentCheckpointLog);
+				// setCheckpointLog(currentCheckpointLog);
+				console.log(value);
 				setCheckpointLog(value);
 				setCurrentCheckpointLog(value);
 				break;
 			case MESSAGE_TYPES.CRIU_RESTORE:
 				setSelectedIndex(0);	
-				setCheckpointLog(value);
-				setCurrentCheckpointLog(value);
+				setCheckpointLog([]);
+				setCurrentCheckpointLog([]);
 				break;
 			case MESSAGE_TYPES.CRIU_CHECKPOINT:
 				setSelectedIndex(0);
