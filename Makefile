@@ -4,7 +4,7 @@ build:
 	cd src/nodeDebugger && go build -o ../../bin/node-debugger *.go
 	cd src/orchestrator && go build -o ../../bin/orchestrator *.go
 	cd src/compiler && go build -o ../../bin/compiler *.go
-
+	cd gui && npm install
 dockerimage:
 	docker build -t mpi--cc-rev-debugger .
 
