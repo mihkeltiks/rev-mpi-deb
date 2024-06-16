@@ -112,6 +112,9 @@ func createWrappedCopy(inputFilePath string) (*os.File, error) {
 	dest.WriteString(terminate("int counter = 0;"))
 	dest.WriteString(terminate("int target = 2000000;"))
 	dest.WriteString(terminate("void call_counter(){\ncounter++;\n if (counter==target){\nraise(SIGTRAP);\n}\n};"))
+	dest.WriteString(terminate("#define DECLARE_AND_INIT(type, var, value)\\"))
+	dest.WriteString(terminate("call_counter();\\"))
+	dest.WriteString(terminate("type var = value;"))
 	infunction := 0
 	inSingleLineComment := false
 	inMultiLineComment := false
@@ -134,7 +137,33 @@ func createWrappedCopy(inputFilePath string) (*os.File, error) {
 		}
 
 		str := strings.TrimSpace(line)
-		if infunction > 0 && str != "" && str[0] != '#' && (len(str) > 2 && str[0:3] != "int") && (len(str) > 3 && str[0:4] != "void" && str[0:4] != "char") {
+		if len(str) > 2 && str[0:3] == "int" && infunction > 0 {
+			index := strings.Index(line, "=")
+			if index == -1 {
+				fmt.Println("No '=' found in the string.")
+				continue
+			}
+
+			leftPart := strings.TrimSpace(line[:index])
+			rightPart := strings.TrimSpace(line[index+1:])
+
+			// Split the left part into type and variable name
+			leftFields := strings.Fields(leftPart)
+			if len(leftFields) < 2 {
+				fmt.Println("Invalid declaration format.")
+				continue
+			}
+
+			typeName := leftFields[0]
+			varName := leftFields[1]
+			value := rightPart
+
+			if strings.HasSuffix(value, ";") {
+				value = value[:len(value)-1]
+			}
+
+			line = "DECLARE_AND_INIT(" + typeName + "," + varName + "," + value + ");"
+		} else if infunction > 0 && str != "" && str[0] != '#' && (len(str) > 2 && str[0:3] != "int") && (len(str) > 3 && str[0:4] != "void" && str[0:4] != "char") {
 			line = "call_counter();" + line
 		}
 		// logger.Verbose("LINE %v", line)

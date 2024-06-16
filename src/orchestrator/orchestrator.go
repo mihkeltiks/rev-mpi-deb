@@ -104,7 +104,6 @@ func main() {
 	wg.Add(1)
 	go connectBackToNodes(numProcesses, false, &wg)
 	wg.Wait()
-	// logger.Verbose("HERE")
 	nodeconnection.SaveRegisteredNodes()
 
 	pid = mpiProcess.Process.Pid
@@ -113,7 +112,7 @@ func main() {
 	checkpoints = append(checkpoints, checkpointDir)
 	checkpointmanager.AddCheckpointLog()
 	websocket.HandleCriuCheckpoint()
-	time.Sleep(time.Duration(500) * time.Millisecond)
+	time.Sleep(time.Duration(200) * time.Millisecond)
 
 	rootCheckpointTree = *checkpointmanager.MakeCheckpointTree(
 		nil,
@@ -220,6 +219,10 @@ func calculateReverseStepCommands(cmd *command.Command) {
 		time.Sleep(50 * time.Millisecond)
 		counters = nodeconnection.GetAllNodeCounters()
 	}
+	bpmap := make(map[int][]int)
+	for i := 0; i < numProcesses; i++ {
+		bpmap[i] = nodeconnection.GetBreakpoints(i)
+	}
 
 	// tree, _ := findTreeCandidateCounter(cmd, *currentCheckpointTree)
 	restoreCriu(rootCheckpointTree.GetCheckpointDir(), pid, numProcesses)
@@ -236,11 +239,10 @@ func calculateReverseStepCommands(cmd *command.Command) {
 			counters[index] -= 1
 		}
 	} else {
-		// for index := range counters {
-		// 	counters[index] -= 1
-		// }
 		counters[cmd.NodeId] -= 1
 	}
+
+	nodeconnection.HandleRemotely(&command.Command{NodeId: -1, Code: command.RemoveBreakpoints})
 
 	for index, counter := range counters {
 		nodeconnection.HandleRemotely(&command.Command{NodeId: index, Code: command.Insert, Argument: counter})
@@ -254,6 +256,9 @@ func calculateReverseStepCommands(cmd *command.Command) {
 
 	for index := range counters {
 		nodeconnection.HandleRemotely(&command.Command{NodeId: index, Code: command.Insert, Argument: 2000000})
+	}
+	for i := 0; i < numProcesses; i++ {
+		nodeconnection.HandleRemotely(&command.Command{NodeId: i, Code: command.ChangeBreakpoints, Argument: bpmap[i]})
 	}
 
 	nodeconnection.ResetAllNodeCounters()
