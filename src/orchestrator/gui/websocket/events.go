@@ -14,8 +14,8 @@ const (
 	RollbackSubmit   MessageType = "rollbackSubmit"
 	RollbackConfirm  MessageType = "rollbackConfirm"
 	RollbackResult   MessageType = "rollbackResult"
-	CriuCheckpoint   MessageType = "criuCheckpoint"
-	CriuRestore      MessageType = "criuRestore"
+	CriuCheckpoint   MessageType = "Checkpoint"
+	CriuRestore      MessageType = "Restore"
 )
 
 type CheckpointUpdateMessage struct {

@@ -21,16 +21,16 @@ func parseCommandFromString(input string) (c *command.Command) {
 		return &command.Command{Code: command.Quit}
 	}
 
-	if input == "cp" { // list recorded checkpoints
+	if input == "lcp" { // list recorded checkpoints
 		return &command.Command{Code: command.ListCheckpoints}
 	}
 
-	if input == "cpCRIU" { // list recorded checkpoints
-		return &command.Command{Code: command.CheckpointCRIU}
+	if input == "cp" { // list recorded checkpoints
+		return &command.Command{Code: command.Checkpoint}
 	}
 
-	if input == "restoreCRIU" { // list recorded checkpoints
-		return &command.Command{Code: command.RestoreCRIU}
+	if input == "restore" { // list recorded checkpoints
+		return &command.Command{Code: command.Restore}
 	}
 
 	if input == "kill" { // list recorded checkpoints
@@ -60,10 +60,10 @@ func parseCommandFromString(input string) (c *command.Command) {
 
 	pieces := strings.Split(input, " ")
 
-	matchesRestoreCriu := regexp.MustCompile("restoreCRIU .+").Match([]byte(input))
-	if matchesRestoreCriu {
+	matchesRestore := regexp.MustCompile("restore .+").Match([]byte(input))
+	if matchesRestore {
 		checkpointId, _ := strconv.Atoi(pieces[1])
-		return &command.Command{Code: command.RestoreCRIU, Argument: checkpointId}
+		return &command.Command{Code: command.Restore, Argument: checkpointId}
 	}
 
 	matchesGlobalRestore := regexp.MustCompile("^r .+").Match([]byte(input))

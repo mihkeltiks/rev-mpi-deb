@@ -37,10 +37,14 @@ var currentCommandlog checkpointmanager.CommandLog
 
 var pid int
 var numProcesses int
+var program string
+
+var c *criu.Criu
 
 func main() {
 	logger.SetMaxLogLevel(logger.Levels.Verbose)
-	numProcessesCLI, targetPath := cli.ParseArgs()
+	numProcessesCLI, targetPath, programloc := cli.ParseArgs()
+	program=programloc
 	numProcesses = numProcessesCLI
 
 	// start goroutine for collecting checkpoint results
@@ -55,18 +59,44 @@ func main() {
 		})
 	}()
 
-	logger.Info("executing %v as an mpi job with %d processes", targetPath, numProcesses)
-	c := criu.MakeCriu()
+	time.Sleep(1 * time.Second) 
 
+	logger.Info("executing %v as an mpi job with %d processes", targetPath, numProcesses)
+
+	var mpiProcess *exec.Cmd
+	var imgDir string
+	var err error
 	// Start the MPI job
-	mpiProcess := exec.Command(
-		"mpirun",
-		"-np",
-		fmt.Sprintf("%d", numProcesses),
-		NODE_DEBUGGER_PATH,
-		targetPath,
-		fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
-	)
+	if program=="criu"{
+		c = criu.MakeCriu()
+		mpiProcess = exec.Command(
+			"mpirun",
+			"-np",
+			fmt.Sprintf("%d", numProcesses),
+			NODE_DEBUGGER_PATH,
+			targetPath,
+			fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
+		)
+		imgDir=""
+	}else if(program=="mana"){
+		img := createCpDir();
+		//start mana coordinator
+		cmd := exec.Command("/home/shk3/git/mana/bin/mana_coordinator") 
+		if err := cmd.Run(); err != nil {
+			logger.Error("mana_coordinator exited with: %v", err)
+		}
+		mpiProcess = exec.Command(
+			"mpirun",
+			"-np",
+			fmt.Sprintf("%d", numProcesses),
+			"/home/shk3/git/mana/bin/mana_launch.py",
+			"--ckptdir",
+			img.Name(),
+			NODE_DEBUGGER_PATH,
+			targetPath,
+			fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
+		)	
+	}
 
 	mpiProcess.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,
@@ -75,7 +105,7 @@ func main() {
 	mpiProcess.Stdout = os.Stdout
 	mpiProcess.Stderr = os.Stderr
 
-	err := mpiProcess.Start()
+	err = mpiProcess.Start()
 	utils.Must(err)
 
 	defer quit()
@@ -108,7 +138,7 @@ func main() {
 
 	pid = mpiProcess.Process.Pid
 
-	checkpointDir := checkpointCRIU(numProcesses, c, pid, true)
+	checkpointDir := checkpoint(imgDir)
 	checkpoints = append(checkpoints, checkpointDir)
 	checkpointmanager.AddCheckpointLog()
 	websocket.HandleCriuCheckpoint()
@@ -139,8 +169,8 @@ func main() {
 			checkpointmanager.ListCheckpoints()
 		case command.GlobalRollback:
 			handleRollbackSubmission(cmd)
-		case command.CheckpointCRIU:
-			checkpointDir := checkpointCRIU(numProcesses, c, pid, true)
+		case command.Checkpoint:
+			checkpointDir = checkpoint(imgDir)
 
 			checkpoints = append(checkpoints, checkpointDir)
 			checkpointmanager.AddCheckpointLog()
@@ -159,10 +189,10 @@ func main() {
 
 			currentCommandlog = []command.Command{}
 
-		case command.RestoreCRIU:
+		case command.GRestore:
 			index := cmd.Argument.(int)
 
-			restoreCriu(checkpoints[index], pid, numProcesses)
+			restore(checkpoints[index], pid, numProcesses)
 
 			websocket.HandleCriuRestore(index)
 			checkpointmanager.SetCheckpointLog(index)
@@ -184,6 +214,19 @@ func main() {
 			time.Sleep(time.Second)
 		}
 	}
+}
+func createCpDir() *os.File {
+			//we create the checkpoint dir
+			imgDir, err := os.MkdirTemp(fmt.Sprintf("%v/temp", utils.GetExecutableDir()), "cp-*")
+		
+			if err != nil {
+				logger.Error("Error creating folder, %v", err)
+			}
+			img, err := os.Open(imgDir)//, os.O_RDWR|os.O_CREATE, 0644)
+			if err != nil {
+				logger.Error("Can't open image dir: %v", err)
+			}
+			return img	
 }
 func findTreeByDir(tree *checkpointmanager.CheckpointTree, dir string) *checkpointmanager.CheckpointTree {
 	if dir == tree.GetCheckpointDir() {
@@ -225,7 +268,7 @@ func calculateReverseStepCommands(cmd *command.Command) {
 	}
 
 	// tree, _ := findTreeCandidateCounter(cmd, *currentCheckpointTree)
-	restoreCriu(rootCheckpointTree.GetCheckpointDir(), pid, numProcesses)
+	restore(rootCheckpointTree.GetCheckpointDir(), pid, numProcesses)
 	websocket.HandleCriuRestore(0)
 	checkpointmanager.SetCheckpointLog(0)
 
@@ -306,10 +349,10 @@ func calculateReverseContinueCommands(cmd *command.Command) {
 
 }
 
-func reverseContLoop(cmd *command.Command, checkpointDir string, counters []int, bpmap map[int][]int, firstRunhitMap map[int][]int, secondRun bool) map[int][]int {
+func reverseContLoop(cmd *command.Command, checkpointDirRestore string, counters []int, bpmap map[int][]int, firstRunhitMap map[int][]int, secondRun bool) map[int][]int {
 	checkpointmanager.SetCheckpointLog(0)
 	websocket.HandleCriuRestore(0)
-	restoreCriu(checkpointDir, pid, numProcesses)
+	restore(checkpointDirRestore, pid, numProcesses)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	connectBackToNodes(numProcesses, true, &wg)
@@ -440,7 +483,8 @@ func connectBackToNodes(numProcesses int, attach bool, wg *sync.WaitGroup) {
 	// logger.Verbose("DONE WITH CONNECT")
 }
 
-func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
+
+func restore(checkpointDir string, pid int, numProcesses int) *os.File {
 	if checkpointDir == "" {
 		if len(checkpoints) == 1 {
 			checkpointDir = checkpoints[0]
@@ -458,6 +502,30 @@ func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
 	syscall.Wait4(pid, nil, 0, nil)
 	// logger.Info("RESTORING %s", checkpointDir)
 
+	if program=="criu"{
+		return restoreCriu(checkpointDir, pid, numProcesses);
+	}else{ //} if(program=="mana"){
+		return restoreMana(checkpointDir, pid, numProcesses);
+	}
+}
+
+func restoreMana(checkpointDir string, pid int, numProcesses int) *os.File {
+	img := createCpDir();
+	cmd := exec.Command("mpirun", "-n", fmt.Sprintf("%d", numProcesses), "/home/shk3/git/mana/bin/mana_restart.py", "--ckptdir", img.Name(), "--restartdir", checkpointDir) //"--tcp-established",
+
+	f, err := pty.Start(cmd)
+	if err != nil {
+		logger.Info("ERROR WITH PTY %s", err)
+	}
+	go func() {
+		io.Copy(os.Stdout, f)
+	}()
+
+	return f
+}
+
+func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
+
 	cmd := exec.Command("criu", "restore", "-v4", "--unprivileged", "-o", "restore.log", "-j", "-D", checkpointDir) //"--tcp-established",
 
 	f, err := pty.Start(cmd)
@@ -471,6 +539,22 @@ func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
 	return f
 }
 
+func checkpoint(checkpointDir string) string{
+	if program=="criu"{
+		return checkpointCRIU(numProcesses, c, pid, true)
+	}else{ // if program=="mana"
+		return checkpointNama(checkpointDir)
+	}
+}
+
+func checkpointNama(checkpointDir string) string{
+	cmd := exec.Command("/home/shk3/git/mana/bin/mana_status", "--checkpoint") 
+	if err := cmd.Run(); err != nil {
+		logger.Error("mana_coordinator exited with: %v", err)
+	}
+	return checkpointDir
+}
+
 func checkpointCRIU(numProcesses int, c *criu.Criu, pid int, leave_running bool) string {
 	nodeconnection.Stop()
 	nodeconnection.Detach()
@@ -479,20 +563,22 @@ func checkpointCRIU(numProcesses int, c *criu.Criu, pid int, leave_running bool)
 	nodeconnection.Empty()
 	// time.Sleep(1000 * time.Millisecond)
 
-	checkpointDir, err := os.MkdirTemp(fmt.Sprintf("%v/temp", utils.GetExecutableDir()), "cp-*")
+	imgDir := createCpDir()
+	/*checkpointDir, err := os.MkdirTemp(fmt.Sprintf("%v/temp", utils.GetExecutableDir()), "cp-*")
 	if err != nil {
 		logger.Error("Error creating folder, %v", err)
-	}
+	}*/
+	logger.Info(imgDir.Name())
 
 	// Calls CRIU, saves process data to checkpointDir
-	Dump(c, strconv.Itoa(pid), false, checkpointDir, "", leave_running)
+	Dump(c, strconv.Itoa(pid), false, imgDir.Name(), "", leave_running)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go connectBackToNodes(numProcesses, true, &wg)
 	wg.Wait()
 	// logger.Verbose("UPPER CP FINISH")
-	return checkpointDir
+	return imgDir.Name()
 }
 
 func Dump(c *criu.Criu, pidS string, pre bool, imgDir string, prevImg string, leave_running bool) {
@@ -518,6 +604,8 @@ func Dump(c *criu.Criu, pidS string, pre bool, imgDir string, prevImg string, le
 		Unprivileged: proto.Bool(true),
 		GhostLimit:   proto.Uint32(1048576 * 64),
 	}
+
+	logger.Info(imgDir)
 
 	if prevImg != "" {
 		opts.ParentImg = proto.String(prevImg)

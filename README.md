@@ -21,11 +21,11 @@ The compiled binary will be written to `./bin/targets/<source-file-name>`. This 
 
 ### run
 ```sh
-bin/orchestror <num_processes> <path-to-target-mpi-application-binary>
+bin/orchestrator <num_processes> <path-to-target-mpi-application-binary> <criu|mana>
 ```
 
 
-ℹ️ There's a couple of example programs included in the `examples` directory to test with.
+There's a couple of example programs included in the `examples` directory to test with.
 Compile them first (`bin/compiler examples/<example-application-file>`)
 
 

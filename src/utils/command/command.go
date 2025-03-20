@@ -38,8 +38,8 @@ const (
 	RemoveBreakpoints
 	ListCheckpoints
 	GlobalRollback
-	RestoreCRIU
-	CheckpointCRIU
+	GRestore
+	Checkpoint
 	// Node-specific commands - executed on designated node
 	Bpoint
 	Next
@@ -55,14 +55,14 @@ const (
 func (c Command) String() string {
 	codeStr := map[CommandCode]string{
 		Bpoint:            "breakpoint",
-		CheckpointCRIU:    "checkpointCRIU",
+		Checkpoint:        "checkpoint",
 		SingleStep:        "single-step",
 		Next:              "next",
 		ReverseSingleStep: "reverse-single-step",
 		Cont:              "continue",
 		ReverseCont:       "reverse-continue",
+		GRestore:           "restore",
 		Restore:           "restore",
-		RestoreCRIU:       "restoreCRIU",
 		Connect:           "connect",
 		Disconnect:        "disconnect",
 		Reset:             "reset",

@@ -15,10 +15,12 @@ import (
 	"github.com/mihkeltiks/rev-mpi-deb/utils/command"
 )
 
-func ParseArgs() (numProcesses int, targetPath string) {
+func ParseArgs() (numProcesses int, targetPath string, program string) {
 	args := os.Args
 
-	if len(args) > 3 || len(args) < 2 {
+	sbb := strconv.Itoa(len(args))
+	logger.Error(sbb)
+	if len(args) > 4 || len(args) < 2 {
 		panicArgs()
 	}
 
@@ -37,11 +39,22 @@ func ParseArgs() (numProcesses int, targetPath string) {
 
 	filepath.EvalSymlinks(targetPath)
 
-	return numProcesses, targetPath
+	program = "criu"
+	if len(args)==4 {
+		if args[3]=="mana" {
+			program="mana"
+		} else if args[3]=="criu" {
+			program="criu"
+		}else{
+			panicArgs()
+		}
+	}
+
+	return numProcesses, targetPath, program
 }
 
 func panicArgs() {
-	logger.Error("usage: orchestrator <num_processes> <target_file>")
+	logger.Error("usage: orchestrator <num_processes> <target_file> ")
 	os.Exit(2)
 }
 
@@ -55,10 +68,10 @@ func PrintInstructions() {
 	fmt.Println("  <nid/all> c \t\tcontinue execution")
 	fmt.Println("  <nid/all> rc \t\tcontinue execution backward")
 	fmt.Println("  <nid/all> p <var>  \tprint a variable")
-	fmt.Println("        cp  \t\tlist recorded checkpoints")
+	fmt.Println("        lcp  \t\tlist recorded checkpoints")
 	fmt.Println("        r <checkpoint id>  \trollback to checkpoint")
-	fmt.Println("        cpCRIU  \tissue a CRIU checkpoint")
-	fmt.Println("        restoreCRIU <var>  \tissue a CRIU restore")
+	fmt.Println("        cp  \tissue a checkpoint")
+	fmt.Println("        restore <var>  \tissue a restore")
 	fmt.Println("        q  \t\tquit")
 	fmt.Println("     help  \t\tshow this again")
 	fmt.Println()
