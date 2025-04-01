@@ -41,8 +41,8 @@ func ParseArgs() (numProcesses int, targetPath string, program string) {
 
 	program = "criu"
 	if len(args)==4 {
-		if args[3]=="mana" {
-			program="mana"
+		if args[3]=="dmtcp" {
+			program="dmtcp"
 		} else if args[3]=="criu" {
 			program="criu"
 		}else{

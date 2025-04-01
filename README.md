@@ -21,7 +21,7 @@ The compiled binary will be written to `./bin/targets/<source-file-name>`. This 
 
 ### run
 ```sh
-bin/orchestrator <num_processes> <path-to-target-mpi-application-binary> <criu|mana>
+bin/orchestrator <num_processes> <path-to-target-mpi-application-binary> <criu|dmtcp>
 ```
 
 

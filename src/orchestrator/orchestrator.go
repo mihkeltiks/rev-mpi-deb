@@ -39,8 +39,6 @@ var pid int
 var numProcesses int
 var program string
 
-var c *criu.Criu
-
 func main() {
 	logger.SetMaxLogLevel(logger.Levels.Verbose)
 	numProcessesCLI, targetPath, programloc := cli.ParseArgs()
@@ -66,6 +64,7 @@ func main() {
 	var mpiProcess *exec.Cmd
 	var imgDir string
 	var err error
+	var c *criu.Criu
 	// Start the MPI job
 	if program=="criu"{
 		c = criu.MakeCriu()
@@ -78,18 +77,18 @@ func main() {
 			fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
 		)
 		imgDir=""
-	}else if(program=="mana"){
+	}else if(program=="dmtcp"){
 		img := createCpDir();
-		//start mana coordinator
-		cmd := exec.Command("/home/shk3/git/mana/bin/mana_coordinator") 
+		//start dmtcp coordinator
+		cmd := exec.Command("dmtcp_coordinator") 
 		if err := cmd.Run(); err != nil {
-			logger.Error("mana_coordinator exited with: %v", err)
+			logger.Error("dmtcp_coordinator exited with: %v", err)
 		}
 		mpiProcess = exec.Command(
 			"mpirun",
 			"-np",
 			fmt.Sprintf("%d", numProcesses),
-			"/home/shk3/git/mana/bin/mana_launch.py",
+			"dmtcp_launch.py",
 			"--ckptdir",
 			img.Name(),
 			NODE_DEBUGGER_PATH,
@@ -138,7 +137,7 @@ func main() {
 
 	pid = mpiProcess.Process.Pid
 
-	checkpointDir := checkpoint(imgDir)
+	checkpointDir := checkpoint(imgDir, c)
 	checkpoints = append(checkpoints, checkpointDir)
 	checkpointmanager.AddCheckpointLog()
 	websocket.HandleCriuCheckpoint()
@@ -170,7 +169,7 @@ func main() {
 		case command.GlobalRollback:
 			handleRollbackSubmission(cmd)
 		case command.Checkpoint:
-			checkpointDir = checkpoint(imgDir)
+			checkpointDir = checkpoint(imgDir, c)
 
 			checkpoints = append(checkpoints, checkpointDir)
 			checkpointmanager.AddCheckpointLog()
@@ -504,14 +503,14 @@ func restore(checkpointDir string, pid int, numProcesses int) *os.File {
 
 	if program=="criu"{
 		return restoreCriu(checkpointDir, pid, numProcesses);
-	}else{ //} if(program=="mana"){
-		return restoreMana(checkpointDir, pid, numProcesses);
+	}else{ //} if(program=="dmtcp"){
+		return restoreDmtcp(checkpointDir, pid, numProcesses);
 	}
 }
 
-func restoreMana(checkpointDir string, pid int, numProcesses int) *os.File {
+func restoreDmtcp(checkpointDir string, pid int, numProcesses int) *os.File {
 	img := createCpDir();
-	cmd := exec.Command("mpirun", "-n", fmt.Sprintf("%d", numProcesses), "/home/shk3/git/mana/bin/mana_restart.py", "--ckptdir", img.Name(), "--restartdir", checkpointDir) //"--tcp-established",
+	cmd := exec.Command("dmtcp_restart.py", "--ckptdir", img.Name(), "--restartdir", checkpointDir) //"--tcp-established",
 
 	f, err := pty.Start(cmd)
 	if err != nil {
@@ -539,18 +538,18 @@ func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
 	return f
 }
 
-func checkpoint(checkpointDir string) string{
+func checkpoint(checkpointDir string, c *criu.Criu) string{
 	if program=="criu"{
 		return checkpointCRIU(numProcesses, c, pid, true)
-	}else{ // if program=="mana"
-		return checkpointNama(checkpointDir)
+	}else{ // if program=="dmtcp"
+		return checkpointDmtcp(checkpointDir)
 	}
 }
 
-func checkpointNama(checkpointDir string) string{
-	cmd := exec.Command("/home/shk3/git/mana/bin/mana_status", "--checkpoint") 
+func checkpointDmtcp(checkpointDir string) string{
+	cmd := exec.Command("dmtcp_command", "--checkpoint") 
 	if err := cmd.Run(); err != nil {
-		logger.Error("mana_coordinator exited with: %v", err)
+		logger.Error("dmtcp_command exited with: %v", err)
 	}
 	return checkpointDir
 }
