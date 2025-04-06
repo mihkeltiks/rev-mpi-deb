@@ -80,23 +80,24 @@ func main() {
 	}else if(program=="dmtcp"){
 		img := createCpDir();
 		//start dmtcp coordinator
-		cmd := exec.Command("dmtcp_coordinator") 
-		if err := cmd.Run(); err != nil {
-			logger.Error("dmtcp_coordinator exited with: %v", err)
-		}
+		//cmd := exec.Command("dmtcp_coordinator") 
+		//if err := cmd.Run(); err != nil {
+		//	logger.Error("dmtcp_coordinator exited with: %v", err)
+		//}
 		mpiProcess = exec.Command(
+			"/home/shk3/git/dmtcp-3.2.0/bin/dmtcp_launch",
+			"--ckptdir",
+			img.Name(),
 			"mpirun",
 			"-np",
 			fmt.Sprintf("%d", numProcesses),
-			"dmtcp_launch.py",
-			"--ckptdir",
-			img.Name(),
 			NODE_DEBUGGER_PATH,
 			targetPath,
 			fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
 		)	
 	}
 
+	//fmt.Printf("%#v",mpiProcess)
 	mpiProcess.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,
 	}
@@ -510,7 +511,7 @@ func restore(checkpointDir string, pid int, numProcesses int) *os.File {
 
 func restoreDmtcp(checkpointDir string, pid int, numProcesses int) *os.File {
 	img := createCpDir();
-	cmd := exec.Command("dmtcp_restart.py", "--ckptdir", img.Name(), "--restartdir", checkpointDir) //"--tcp-established",
+	cmd := exec.Command(checkpointDir+"/dmtcp_restart_script.sh", "--ckptdir", img.Name())
 
 	f, err := pty.Start(cmd)
 	if err != nil {
@@ -547,9 +548,13 @@ func checkpoint(checkpointDir string, c *criu.Criu) string{
 }
 
 func checkpointDmtcp(checkpointDir string) string{
-	cmd := exec.Command("dmtcp_command", "--checkpoint") 
+	cmd := exec.Command("/home/shk3/git/dmtcp-3.2.0/bin/dmtcp_command", "--checkpoint") 
 	if err := cmd.Run(); err != nil {
 		logger.Error("dmtcp_command exited with: %v", err)
+	}
+	cmd = exec.Command("ps aux | grep dmtcp_coordinator | grep -v grep | awk '{print \"kill -9 \" $2;system(\"kill -9 \" $2)}'")
+	if err := cmd.Run(); err != nil {
+		logger.Error("can't kill dmtcp_coordinator: %v", err)
 	}
 	return checkpointDir
 }
