@@ -79,13 +79,14 @@ func main() {
 		imgDir=""
 	}else if(program=="dmtcp"){
 		img := createCpDir();
+		imgDir=img.Name()
 		//start dmtcp coordinator
 		//cmd := exec.Command("dmtcp_coordinator") 
 		//if err := cmd.Run(); err != nil {
 		//	logger.Error("dmtcp_coordinator exited with: %v", err)
 		//}
 		mpiProcess = exec.Command(
-			"/home/shk3/git/dmtcp-3.2.0/bin/dmtcp_launch",
+			"dmtcp_launch",
 			"--ckptdir",
 			img.Name(),
 			"mpirun",
@@ -173,6 +174,7 @@ func main() {
 			checkpointDir = checkpoint(imgDir, c)
 
 			checkpoints = append(checkpoints, checkpointDir)
+			//fmt.Println(checkpoints)
 			checkpointmanager.AddCheckpointLog()
 
 			websocket.HandleCriuCheckpoint()
@@ -548,14 +550,14 @@ func checkpoint(checkpointDir string, c *criu.Criu) string{
 }
 
 func checkpointDmtcp(checkpointDir string) string{
-	cmd := exec.Command("/home/shk3/git/dmtcp-3.2.0/bin/dmtcp_command", "--checkpoint") 
+	cmd := exec.Command("dmtcp_command", "--checkpoint") 
 	if err := cmd.Run(); err != nil {
 		logger.Error("dmtcp_command exited with: %v", err)
 	}
-	cmd = exec.Command("ps aux | grep dmtcp_coordinator | grep -v grep | awk '{print \"kill -9 \" $2;system(\"kill -9 \" $2)}'")
+	/*cmd = exec.Command("killall", "-9", "dmtcp_coordinator")
 	if err := cmd.Run(); err != nil {
 		logger.Error("can't kill dmtcp_coordinator: %v", err)
-	}
+	}*/
 	return checkpointDir
 }
 
