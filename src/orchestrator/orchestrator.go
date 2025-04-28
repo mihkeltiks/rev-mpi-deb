@@ -87,7 +87,7 @@ func main() {
 			}
 		}
 		mpiProcess = exec.Command(
-			"/home/shk3/git/dmtcp-3.2.0/bin/dmtcp_launch",
+			"dmtcp_launch",
 			"--ckptdir",
 			dmtcpImgDir,
 			"mpirun",
