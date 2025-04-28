@@ -38,6 +38,7 @@ var currentCommandlog checkpointmanager.CommandLog
 var pid int
 var numProcesses int
 var program string
+var dmtcpImgDir string
 
 func main() {
 	logger.SetMaxLogLevel(logger.Levels.Verbose)
@@ -62,7 +63,6 @@ func main() {
 	logger.Info("executing %v as an mpi job with %d processes", targetPath, numProcesses)
 
 	var mpiProcess *exec.Cmd
-	var imgDir string
 	var err error
 	var c *criu.Criu
 	// Start the MPI job
@@ -76,19 +76,20 @@ func main() {
 			targetPath,
 			fmt.Sprintf("localhost:%d", ORCHESTRATOR_PORT),
 		)
-		imgDir=""
+		dmtcpImgDir=""
 	}else if(program=="dmtcp"){
-		img := createCpDir();
-		imgDir=img.Name()
-		//start dmtcp coordinator
-		//cmd := exec.Command("dmtcp_coordinator") 
-		//if err := cmd.Run(); err != nil {
-		//	logger.Error("dmtcp_coordinator exited with: %v", err)
-		//}
+		dmtcpImgDir=fmt.Sprintf("%v/temp/dmtcp", utils.GetExecutableDir())
+		if _, err := os.Stat(dmtcpImgDir); os.IsNotExist(err) {
+			err := os.Mkdir(dmtcpImgDir, 0750)
+			if err != nil {
+				logger.Error("trying to create temp/dmtcp: %v", err)
+				os.Exit(1)
+			}
+		}
 		mpiProcess = exec.Command(
-			"dmtcp_launch",
+			"/home/shk3/git/dmtcp-3.2.0/bin/dmtcp_launch",
 			"--ckptdir",
-			img.Name(),
+			dmtcpImgDir,
 			"mpirun",
 			"-np",
 			fmt.Sprintf("%d", numProcesses),
@@ -139,7 +140,7 @@ func main() {
 
 	pid = mpiProcess.Process.Pid
 
-	checkpointDir := checkpoint(imgDir, c)
+	checkpointDir := checkpoint(c)
 	checkpoints = append(checkpoints, checkpointDir)
 	checkpointmanager.AddCheckpointLog()
 	websocket.HandleCriuCheckpoint()
@@ -171,7 +172,7 @@ func main() {
 		case command.GlobalRollback:
 			handleRollbackSubmission(cmd)
 		case command.Checkpoint:
-			checkpointDir = checkpoint(imgDir, c)
+			checkpointDir = checkpoint(c)
 
 			checkpoints = append(checkpoints, checkpointDir)
 			//fmt.Println(checkpoints)
@@ -512,8 +513,7 @@ func restore(checkpointDir string, pid int, numProcesses int) *os.File {
 }
 
 func restoreDmtcp(checkpointDir string, pid int, numProcesses int) *os.File {
-	img := createCpDir();
-	cmd := exec.Command(checkpointDir+"/dmtcp_restart_script.sh", "--ckptdir", img.Name())
+	cmd := exec.Command(checkpointDir+"/dmtcp_restart_script.sh", "--ckptdir", dmtcpImgDir)
 
 	f, err := pty.Start(cmd)
 	if err != nil {
@@ -541,24 +541,44 @@ func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
 	return f
 }
 
-func checkpoint(checkpointDir string, c *criu.Criu) string{
+func checkpoint(c *criu.Criu) string{
 	if program=="criu"{
 		return checkpointCRIU(numProcesses, c, pid, true)
 	}else{ // if program=="dmtcp"
-		return checkpointDmtcp(checkpointDir)
+		return checkpointDmtcp()
 	}
 }
 
-func checkpointDmtcp(checkpointDir string) string{
+func checkpointDmtcp() string{
 	cmd := exec.Command("dmtcp_command", "--checkpoint") 
 	if err := cmd.Run(); err != nil {
 		logger.Error("dmtcp_command exited with: %v", err)
 	}
-	/*cmd = exec.Command("killall", "-9", "dmtcp_coordinator")
-	if err := cmd.Run(); err != nil {
-		logger.Error("can't kill dmtcp_coordinator: %v", err)
-	}*/
-	return checkpointDir
+	imgDir := createCpDir()
+
+	finished:=false
+	for !finished{
+		entries, err := os.ReadDir(dmtcpImgDir)
+		if err != nil {
+			logger.Error("problem renameing",err)
+		}
+		for _, e := range entries {
+			if e.Name()=="dmtcp_restart_script.sh" {
+				finished=true
+			}
+		}
+	}
+	entries, err := os.ReadDir(dmtcpImgDir) 
+	if err != nil {
+		logger.Error("problem renameing",err)
+	}
+	for _, e := range entries {
+		err :=  os.Rename(dmtcpImgDir+"/"+e.Name(), imgDir.Name()+"/"+e.Name())
+		if err != nil {
+			fmt.Println(err)
+		}
+    }
+	return imgDir.Name()
 }
 
 func checkpointCRIU(numProcesses int, c *criu.Criu, pid int, leave_running bool) string {
