@@ -3,7 +3,9 @@
 ---
 
 ## Running on linux
-Currently only x86_64 architecture is supported. Since CRIU requires root it is recommended to run as a container or on a virtual machine. This has been tested with Go/1.21, MPICH/3.4.3, and requires an MPI compiler that is capable of producing level 4 DWARF data. Running might require editing root user $PATH to execute mpirun and CRIU.
+Currently only x86_64 architecture is supported. Since CRIU requires root it is recommended to run as a container or on a virtual machine. This has been tested with Go/1.21, MPICH/3.4.3, and requires an MPI compiler that is capable of producing level 4 DWARF data. Running might require editing root user $PATH to execute mpirun and CRIU or DMTCP.
+
+Details for both backends, CRIU and DMTCP, are found in [manual.md](manual.md).
 
 ### build
 
