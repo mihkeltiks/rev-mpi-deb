@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -513,6 +514,14 @@ func restore(checkpointDir string, pid int, numProcesses int) *os.File {
 }
 
 func restoreDmtcp(checkpointDir string, pid int, numProcesses int) *os.File {
+	entries, err := os.ReadDir(checkpointDir) 
+	if err != nil {
+		logger.Error("problem renameing",err)
+	}
+	for _, e := range entries {
+		copy(checkpointDir+"/"+e.Name(), dmtcpImgDir+"/"+e.Name())
+    }
+
 	cmd := exec.Command(checkpointDir+"/dmtcp_restart_script.sh", "--ckptdir", dmtcpImgDir)
 
 	f, err := pty.Start(cmd)
@@ -525,6 +534,20 @@ func restoreDmtcp(checkpointDir string, pid int, numProcesses int) *os.File {
 
 	return f
 }
+
+func copy(src string, dst string) {
+    // Read all content of src to data, may cause OOM for a large file.
+    data, err := ioutil.ReadFile(src)
+    if err != nil {
+        logger.Info("ERROR WITH PTY %s",err)
+    }
+    // Write data to dst
+    err = ioutil.WriteFile(dst, data, 0644)
+    if err != nil {
+        logger.Info("ERROR WITH PTY %s",err)
+    }
+}
+
 
 func restoreCriu(checkpointDir string, pid int, numProcesses int) *os.File {
 
@@ -556,11 +579,13 @@ func checkpointDmtcp() string{
 	}
 	imgDir := createCpDir()
 
+	//the restart scrpt is written last, we wait till this exists to make sure the snapshot was done
 	finished:=false
 	for !finished{
 		entries, err := os.ReadDir(dmtcpImgDir)
 		if err != nil {
 			logger.Error("problem renameing",err)
+			time.Sleep(1 * time.Second) 
 		}
 		for _, e := range entries {
 			if e.Name()=="dmtcp_restart_script.sh" {
