@@ -1,0 +1,54 @@
+40c40
+< call_counter();static void random_matrix(double *M, int rows, int cols) {
+---
+> static void random_matrix(double *M, int rows, int cols) {
+52c52
+<                            int m, int s, int n,
+---
+>                            int m, int s, int n, int rows_per_blk, int k_offset){
+65a66
+> int main(int argc, char **argv) {
+66a68
+> call_counter();    int rank, size;
+71c73,75
+< DECLARE_AND_INIT(int,m,512, s = 512, n = 512);
+---
+> DECLARE_AND_INIT(int,m,512);
+> DECLARE_AND_INIT(int,s,512);
+> DECLARE_AND_INIT(int,n,512);
+96c100
+< call_counter();    _MPI_Bcast(A, m * s, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+---
+> call_counter();    MPI_Bcast(A, m * s, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+100,102c104,106
+< call_counter();    _MPI_Scatter(B, rows_per_proc * n, MPI_DOUBLE,
+< call_counter();                Bblk, rows_per_proc * n, MPI_DOUBLE,
+< call_counter();                0, MPI_COMM_WORLD);
+---
+> call_counter();    MPI_Scatter(B, rows_per_proc * n, MPI_DOUBLE,
+>                Bblk, rows_per_proc * n, MPI_DOUBLE,
+>                0, MPI_COMM_WORLD);
+112c116
+< call_counter();    _MPI_Barrier(MPI_COMM_WORLD);
+---
+> call_counter();    MPI_Barrier(MPI_COMM_WORLD);
+120,122c124,126
+< call_counter();        _MPI_Sendrecv(Bblk, rows_per_proc * n, MPI_DOUBLE, left, 0,
+< call_counter();                     tmpB, rows_per_proc * n, MPI_DOUBLE, right, 0,
+< call_counter();                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+---
+> call_counter();        MPI_Sendrecv(Bblk, rows_per_proc * n, MPI_DOUBLE, left, 0,
+>                      tmpB, rows_per_proc * n, MPI_DOUBLE, right, 0,
+>                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+128c132
+< call_counter();    _MPI_Barrier(MPI_COMM_WORLD);
+---
+> call_counter();    MPI_Barrier(MPI_COMM_WORLD);
+137c141
+< call_counter();    _MPI_Reduce(Clocal, Cfinal, m * n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+---
+> call_counter();    MPI_Reduce(Clocal, Cfinal, m * n, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+162d165
+< call_counter();        printf("Max |Δ| vs serial   : %.3e\n", max_err);
+165d167
+< call_counter();        free(Cref);
