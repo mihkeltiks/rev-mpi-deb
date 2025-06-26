@@ -6,14 +6,15 @@
 
 #define ARRAY_SIZE 100000
 
+int num = 3;
+int index, i, pid, number_of_processes, elements_per_process, num_of_elements_recieved, elements_left;
+static int list_of_numbers[ARRAY_SIZE];
+static int buffer[ARRAY_SIZE];
+unsigned long frequency;
+time_t t;
+
 int main(int argc, char** argv)
 {
-	int num = 3;
-	static int list_of_numbers[ARRAY_SIZE];
-	int i;
-	time_t t;
-
-
 	// Use current time as seed for random generator
 	srand((unsigned) time(&t));
 
@@ -28,20 +29,13 @@ int main(int argc, char** argv)
 	MPI_Init(NULL, NULL);
 
 	// Get the rank of the process
-	int pid;
 	MPI_Comm_rank(MPI_COMM_WORLD, &pid);
 
 	// Get the number of processes
-	int number_of_processes;
 	MPI_Comm_size(MPI_COMM_WORLD, &number_of_processes);
 
 	if (pid == 0) {
 		// master process
-
-		int index, i;
-		int elements_per_process;
-		unsigned long frequency;
-
 		elements_per_process = ARRAY_SIZE / number_of_processes;
 
 		// check if more than 1 processes are running
@@ -56,7 +50,7 @@ int main(int argc, char** argv)
 
 			// last process adds remaining elements
 			index = i * elements_per_process;
-			int elements_left = ARRAY_SIZE - index;
+			elements_left = ARRAY_SIZE - index;
 
 			MPI_Send(&elements_left,1, MPI_INT,i, 0,MPI_COMM_WORLD);
 			MPI_Send(&list_of_numbers[index],elements_left,MPI_INT, i, 0,MPI_COMM_WORLD);
@@ -80,9 +74,8 @@ int main(int argc, char** argv)
 	} else {
 		// worker processes
 
-		static int buffer[ARRAY_SIZE];
-		int num_of_elements_recieved = 0;
-		unsigned long frequency = 0;
+		num_of_elements_recieved = 0;
+		frequency = 0;
 
 		MPI_Recv(&num_of_elements_recieved,1, MPI_INT, 0, 0,MPI_COMM_WORLD,&status);
 

@@ -1,8 +1,7 @@
 #include <mpi.h>
 #include <stdio.h>
 
-int rank;
-int size;
+int rank, size, sendValue, recvValue, otherProcessRank;
 int phase = 0;
 
 void initialise()
@@ -25,10 +24,6 @@ void passMessages()
 
     phase++; // phase 1
 
-    int sendValue;
-    int recvValue;
-
-    int otherProcessRank;
 
     if (rank == 0){
         otherProcessRank = 1;
