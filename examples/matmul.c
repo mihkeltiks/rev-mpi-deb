@@ -19,9 +19,6 @@
 #define FROM_MASTER 1          /* setting a message type */
 #define FROM_WORKER 2          /* setting a message type */
 
-int main (int argc, char *argv[])
-{
-printf("AA");
 int	numtasks;              /* number of tasks in partition */
 int	taskid;                /* a task identifier */
 int	numworkers;            /* number of worker tasks */
@@ -35,6 +32,9 @@ int	i, j, k, rc;           /* misc */
 double	a[NRA][NCA];           /* matrix A to be multiplied */
 double	b[NCA][NCB];           /* matrix B to be multiplied */
 double	c[NRA][NCB];           /* result matrix C */
+
+int main (int argc, char *argv[])
+{
 MPI_Status status;
 MPI_Init(&argc,&argv);
 MPI_Comm_rank(MPI_COMM_WORLD,&taskid);
